@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toolkit"
+version = "0.1.0"
+description = "Shared utilities for the LLM fact-checking tutorial (adapted from llm-vs-human-fc-agreement)"
+authors = [
+    {name = "Matthew DeVerna"}
+]
+requires-python = ">=3.10"
+# Runtime deps are declared in the root pyproject.toml and installed via
+# `uv sync` at the repo root. The toolkit itself has no separate dependency
+# list so that the single root environment stays authoritative.
+dependencies = []
+
+[tool.setuptools]
+packages = ["toolkit", "toolkit.providers"]

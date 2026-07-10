@@ -1,0 +1,31 @@
+[project]
+name = "llm-factchecking-tutorial"
+version = "0.1.0"
+description = "Hands-on IC2S2 workshop: Computational Approaches to LLM Fact-Checking in Real-Time"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "toolkit",
+    "openai>=1.12.0",
+    # Official OpenRouter SDK — latest published series is 0.11.x (no 1.0 yet)
+    "openrouter>=0.11.0",
+    "playwright>=1.41.0",
+    "pydantic>=2.6.0",
+    "pandas",
+    "pyarrow",
+    "beautifulsoup4",
+    "tenacity",
+    "tldextract",
+    "typing_extensions",
+    "ipykernel",
+    "notebook",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["toolkit"]
+
+[tool.uv.sources]
+toolkit = { workspace = true }
