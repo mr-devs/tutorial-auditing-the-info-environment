@@ -22,6 +22,7 @@ Free-tier limits (developer key): 1 call/second, 500 calls/day.
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -228,20 +229,28 @@ class GuardianClient:
             page += 1
 
 
+def _camel_to_snake(name: str) -> str:
+    """Convert an API field name like ``bodyText`` to ``body_text``."""
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
 def to_record(article: dict) -> dict:
-    """Flatten one raw API result into a tidy, analysis-ready dict."""
-    fields = article.get("fields", {})
-    return {
+    """Flatten one raw API result into a tidy, analysis-ready dict.
+
+    The stable core keys (id, url, published, section) come from the article
+    envelope; every requested ``show-fields`` field is merged in with its
+    name converted to snake_case (``bodyText`` -> ``body_text``), so records
+    automatically match whatever fields the search asked for.
+    """
+    record = {
         "id": article.get("id"),
         "url": article.get("webUrl"),
         "published": article.get("webPublicationDate"),
         "section": article.get("sectionName"),
-        "headline": fields.get("headline"),
-        "byline": fields.get("byline"),
-        "trail_text": fields.get("trailText"),
-        "wordcount": fields.get("wordcount"),
-        "body_text": fields.get("bodyText"),
     }
+    for key, value in article.get("fields", {}).items():
+        record[_camel_to_snake(key)] = value
+    return record
 
 
 def append_records(records, output_fp) -> int:

@@ -15,16 +15,25 @@ experimentation without registering. LLM keys are resolved through
 """
 
 import os
+from pathlib import Path
 
 GUARDIAN_API_KEY = os.getenv("GUARDIAN_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
+# Data paths are anchored to the repository root (two levels above this
+# file), NOT the current working directory — so scripts and notebooks read
+# and write the same data/ no matter where they are launched from.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 # Step 1 output: one JSONL file of Guardian articles per collection run.
-ARTICLES_DIR = os.getenv("ARTICLES_DIR", "./data/articles")
+ARTICLES_DIR = os.getenv("ARTICLES_DIR", str(REPO_ROOT / "data" / "articles"))
 
 # Step 2 output: one JSONL file of generated questions per provider run.
-QUESTIONS_DIR = os.getenv("QUESTIONS_DIR", "./data/questions")
+QUESTIONS_DIR = os.getenv("QUESTIONS_DIR", str(REPO_ROOT / "data" / "questions"))
+
+# Datetime-stamped log files from the scripts' --create-log-file flag.
+LOGS_DIR = os.getenv("LOGS_DIR", str(REPO_ROOT / "logs"))
 
 # Models supported by the tutorial scripts, mapped to the provider that
 # serves them (used to route --model choices to the right SDK adapter).
