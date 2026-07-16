@@ -66,6 +66,10 @@ PolitiFact-era dependencies (`playwright`, `newspaper4k`, `beautifulsoup4`,
 `pyarrow`) were removed from the root `pyproject.toml`; re-add per step if a
 later step needs them (`tldextract` stays — `toolkit.utils` imports it).
 
+**End of development:** revisit the packages in the environment (root
+`pyproject.toml` dependencies) and clean them up — audit what Steps 1–5
+actually import and remove anything unused.
+
 ## Target layout
 
 ```
@@ -87,3 +91,4 @@ original prototype the Step 1 notebook teaches from) and
 - [ ] Step 3 — LLM-as-judge (`03_llm_judge.md`)
 - [ ] Step 4 — Answering methods (`04_answering_methods.md`)
 - [ ] Step 5 — Horse-race website (`05_horse_race_site.md`)
+- [ ] End of development — audit and clean up environment dependencies (root `pyproject.toml`)
