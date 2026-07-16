@@ -8,7 +8,9 @@ dependencies = [
     "toolkit",
     "requests",
     "tenacity",
-    "openai>=1.12.0",
+    "openai>=2.0.0",
+    # Official Gemini SDK (replaces the deprecated google-generativeai)
+    "google-genai>=1.0.0",
     # Official OpenRouter SDK — latest published series is 0.11.x (no 1.0 yet)
     "openrouter>=0.11.0",
     "pydantic>=2.6.0",

@@ -48,8 +48,10 @@ All intermediate data is JSONL (append-safe, streamable, crash-safe).
      retries, resume),
   3. source code in the local editable **`toolkit`** package that the script
      imports (uv workspace member; `uv sync` installs it editable).
-- API keys come from plain environment variables (`GUARDIAN_API_KEY`,
-  `OPENAI_API_KEY`, `OPENROUTER_API_KEY`) — never stored in the repo.
+- API keys come from environment variables (`GUARDIAN_API_KEY`,
+  `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`) — never stored in
+  the repo. LLM keys are resolved by `toolkit.providers.load_api_key`, which
+  prefers `SML_`-prefixed variants (the lab machines' convention).
 - Environment management is `uv`-only (`uv sync`); no requirements.txt.
 
 ## toolkit module inventory
@@ -57,9 +59,11 @@ All intermediate data is JSONL (append-safe, streamable, crash-safe).
 | Module | Status |
 |---|---|
 | `toolkit/guardian.py` | **new** (Step 1) — Guardian API client, rate limiter, JSONL persistence/resume |
-| `toolkit/config.py` | kept, reworked — keys, paths; step-specific config re-added as steps are built |
+| `toolkit/questions.py` | **new** (Step 2) — MCQ schema, generation orchestration (threadpool), JSONL/resume |
+| `toolkit/prompts.py` | **new** (Step 2) — all prompt text (system constants + user-template builders) |
+| `toolkit/config.py` | kept, reworked — keys, paths, `SUPPORTED_MODELS` |
 | `toolkit/utils.py` | kept — `setup_logging`, `extract_domain`, `load_jsonl` |
-| `toolkit/providers/` | kept — provider adapters (used from Step 2 on) |
+| `toolkit/providers/` | reworked (Step 2) — `load_api_key` (SML_ fallback), OpenAI + Gemini adapters with a shared `run_parsed` interface |
 | `io.py`, `metrics.py`, `prompts.py`, `response_structure.py`, `text.py`, `string_helpers.py`, `playwright_helper.py` | deleted (PolitiFact-era) |
 
 PolitiFact-era dependencies (`playwright`, `newspaper4k`, `beautifulsoup4`,
@@ -87,7 +91,7 @@ original prototype the Step 1 notebook teaches from) and
 ## Status
 
 - [x] Step 1 — Guardian news collection (see `01_guardian_news.md`)
-- [ ] Step 2 — MCQ generation (`02_mcq_generation.md`)
+- [x] Step 2 — MCQ generation (`02_mcq_generation.md`)
 - [ ] Step 3 — LLM-as-judge (`03_llm_judge.md`)
 - [ ] Step 4 — Answering methods (`04_answering_methods.md`)
 - [ ] Step 5 — Horse-race website (`05_horse_race_site.md`)

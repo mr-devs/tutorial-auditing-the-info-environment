@@ -1,68 +1,77 @@
 """
-Provider: OpenAI (Responses API). Copied from llm-vs-human-fc-agreement and
-adapted for the tutorial: web search is switchable (closed-book vs. open-book
-conditions) and the structured-output schema is parameterizable.
+Provider: OpenAI (Responses API) with Pydantic structured outputs.
 
-`run(model, system_prompt, user_text, ...)` → raw_dict
-`run_parsed(model, system_prompt, user_text, ...)` → (parsed_pydantic_object, raw_dict)
+`run_parsed(model, system_prompt, user_text, response_format)` returns
+`(parsed_pydantic_object_or_None, raw_response_dict)` — the same interface as
+`toolkit.providers.gemini_provider`, so callers can swap providers freely.
+
+Web search is off by default (Step 2's question generation must stay grounded
+in the supplied article); Step 4's open-book condition turns it on explicitly.
 """
 
+import logging
 from functools import lru_cache
 
-from openai import OpenAI
-from tenacity import retry, stop_after_attempt, wait_random_exponential
+from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitError
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 from toolkit.providers._keys import (
     OPENAI_WEBSEARCH_TOOLS,
     PROVIDER_ENV,
-    resolve_api_key,
+    load_api_key,
 )
-from toolkit.response_structure import OpenAIFactCheckingResponse
+
+logger = logging.getLogger(__name__)
+
+# Transient failures only — never retry auth (401) or bad-request (400) errors.
+RETRYABLE_EXCEPTIONS = (APIConnectionError, RateLimitError, InternalServerError)
 
 
 @lru_cache(maxsize=1)
-def _get_client():
-    return OpenAI(api_key=resolve_api_key(PROVIDER_ENV["openai"]))
+def _get_client() -> OpenAI:
+    # One shared client per process; the OpenAI client is thread-safe, so
+    # ThreadPoolExecutor workers can issue concurrent requests through it.
+    return OpenAI(api_key=load_api_key(PROVIDER_ENV["openai"]))
 
 
-@retry(wait=wait_random_exponential(min=1, max=90), stop=stop_after_attempt(7))
-def _call(model, system_prompt, user_text, use_web_search, text_format):
+@retry(
+    retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+    wait=wait_random_exponential(min=1, max=60),
+    stop=stop_after_attempt(5),
+    reraise=True,
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+)
+def _call(model, system_prompt, user_text, response_format, use_web_search):
     kwargs = dict(
         model=model,
         input=[
             {"role": "developer", "content": system_prompt},
             {"role": "user", "content": user_text},
         ],
-        text_format=text_format,
+        text_format=response_format,
     )
     if use_web_search:
         kwargs["tools"] = OPENAI_WEBSEARCH_TOOLS
     return _get_client().responses.parse(**kwargs)
 
 
-def run(
-    model,
-    system_prompt,
-    user_text,
-    use_web_search=True,
-    text_format=OpenAIFactCheckingResponse,
-):
+def run(model, system_prompt, user_text, response_format, use_web_search=False):
     """Call the OpenAI Responses API and return the raw response dict."""
-    response = _call(model, system_prompt, user_text, use_web_search, text_format)
+    response = _call(model, system_prompt, user_text, response_format, use_web_search)
     return response.model_dump(warnings=False)
 
 
-def run_parsed(
-    model,
-    system_prompt,
-    user_text,
-    use_web_search=True,
-    text_format=OpenAIFactCheckingResponse,
-):
+def run_parsed(model, system_prompt, user_text, response_format, use_web_search=False):
     """Like ``run`` but also return the schema-validated Pydantic object.
 
     Returns ``(parsed, raw_dict)`` where ``parsed`` is an instance of
-    ``text_format`` (or None if the model returned nothing parseable).
+    ``response_format`` (or ``None`` if the model's output failed to parse).
     """
-    response = _call(model, system_prompt, user_text, use_web_search, text_format)
+    response = _call(model, system_prompt, user_text, response_format, use_web_search)
     return response.output_parsed, response.model_dump(warnings=False)

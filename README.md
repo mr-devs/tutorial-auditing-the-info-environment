@@ -8,7 +8,7 @@ tests LLM "contestants" on it three different ways, and finishes with a live
 | Step | Notebook | Script | What happens |
 |---|---|---|---|
 | 1 | `notebooks/01_guardian_news_collection.ipynb` | `scripts/01_collect_guardian_news.py` | Scrape Guardian articles (full body text) into JSONL |
-| 2 | *(coming)* | *(coming)* | LLM generates multiple-choice questions from the articles |
+| 2 | `notebooks/02_question_generation.ipynb` | `scripts/02_generate_questions.py` | LLMs generate multiple-choice questions from the articles (OpenAI + Gemini, structured outputs, threaded) |
 | 3 | *(coming)* | *(coming)* | LLM-as-judge vets each question (quality, faithfulness, difficulty) |
 | 4 | *(coming)* | *(coming)* | LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate |
 | 5 | *(coming)* | *(coming)* | Live website: humans vs. LLM methods, compared in real time |
@@ -25,6 +25,7 @@ notes live in [`docs/plans/`](docs/plans/00_overview.md).
 - [`uv`](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - A free [Guardian API key](https://open-platform.theguardian.com/access/) (Step 1)
 - An [OpenAI API key](https://platform.openai.com/api-keys) (Steps 2–4)
+- A [Gemini API key](https://aistudio.google.com/apikey) (Steps 2–4)
 - An [OpenRouter API key](https://openrouter.ai/keys) (Step 4)
 
 ### Create the environment
@@ -44,11 +45,14 @@ member) — edits to `toolkit/` take effect without reinstalling.
 ```bash
 export GUARDIAN_API_KEY="..."
 export OPENAI_API_KEY="sk-..."
+export GEMINI_API_KEY="..."
 export OPENROUTER_API_KEY="sk-or-..."
 ```
 
 Add these to your shell profile, or run them in the terminal you launch
-Jupyter/VS Code from. Keys are never stored in the repo.
+Jupyter/VS Code from. Keys are never stored in the repo. `SML_`-prefixed
+variants (e.g. `SML_OPENAI_API_KEY`, the lab machines' convention) are
+checked first and take precedence.
 
 > **No Guardian key yet?** The Guardian's shared public key — literally the
 > string `test` — works for light experimentation, and the Step 1 notebook
@@ -82,6 +86,21 @@ the 500 calls/day budget, retries transient failures with exponential
 backoff, saves incrementally (crash-safe JSONL), and **resumes**: re-running
 the same command skips articles already saved. `--help` documents the full
 Guardian search surface (query, section, tag, date window, ordering, ...).
+
+## Step 2 quick start
+
+Generate a quiz from the collected articles — once per model you want to
+compare (the provider is inferred from the model id):
+
+```bash
+uv run python scripts/02_generate_questions.py --model gpt-5.6-terra --parallel
+uv run python scripts/02_generate_questions.py --model gemini-3.1-flash-lite --parallel
+```
+
+Each run writes `data/questions/questions_<model>.jsonl` (one question per
+line, schema-validated). `--parallel` fans articles out to a thread pool;
+resume works exactly like Step 1 — re-running skips articles that already
+have questions.
 
 ## Repository layout
 
