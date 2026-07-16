@@ -5,7 +5,7 @@ parallel via a thread pool.
 
 Examples
 --------
-# 3 questions per article for every Step-1 article, with an OpenAI model
+# 1 question per article (the default) for every Step-1 article
 uv run python scripts/02_generate_questions.py --model gpt-5.6-terra
 
 # A Gemini question set (run several models to enable Step 3+ comparisons)
@@ -22,7 +22,7 @@ Inputs
   gpt-5.4-mini-2026-03-17, gpt-5.6-terra (OpenAI);
   gemini-3.1-flash-lite, gemini-3.5-flash (Gemini).
   The provider is inferred from the model.
-- --n-questions: questions per article (default 3)
+- --n-questions: questions per article (default 1)
 - --max-articles: cap for demos (default: all)
 - --parallel: submit articles to a ThreadPoolExecutor instead of a sequential loop
 - --max-workers: threads when --parallel (default 8)
@@ -46,6 +46,7 @@ Author: Matthew DeVerna
 
 import argparse
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -54,6 +55,11 @@ from toolkit.questions import generate_for_articles
 from toolkit.utils import load_jsonl, setup_logging
 
 DEFAULT_INPUT = f"{config.ARTICLES_DIR}/guardian_articles.jsonl"
+
+
+def rel_to_root(path) -> str:
+    """Show a path relative to the repo root (keeps --help output readable)."""
+    return os.path.relpath(path, config.REPO_ROOT)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,7 +72,10 @@ def build_parser() -> argparse.ArgumentParser:
     inputs.add_argument(
         "--input",
         default=DEFAULT_INPUT,
-        help="Articles JSONL produced by Step 1 (default: %(default)s).",
+        help=(
+            "Articles JSONL produced by Step 1 (default: "
+            f"{rel_to_root(DEFAULT_INPUT)}, relative to the repository root)."
+        ),
     )
 
     generation = parser.add_argument_group("generation")
@@ -83,7 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
     generation.add_argument(
         "--n-questions",
         type=int,
-        default=3,
+        default=1,
         help="Questions to generate per article (default: %(default)s).",
     )
     generation.add_argument(
@@ -101,8 +110,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--parallel",
         action="store_true",
         help=(
-            "Submit articles to a ThreadPoolExecutor instead of a sequential "
-            "loop. API calls are I/O-bound, so threads overlap the waiting."
+            "Include to submit multiple articles in parallel via a "
+            "ThreadPoolExecutor instead of a sequential loop. Most of each "
+            "API call is spent waiting for the provider's response, so "
+            "several calls can wait at the same time — much faster overall."
         ),
     )
     concurrency.add_argument(
@@ -168,7 +179,7 @@ def main(argv=None) -> int:
     log_file = args.log_file
     if args.create_log_file:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        log_file = f"logs/generate_questions_{timestamp}.log"
+        log_file = f"{config.LOGS_DIR}/generate_questions_{timestamp}.log"
 
     setup_logging(
         log_level=args.log_level,
@@ -178,12 +189,12 @@ def main(argv=None) -> int:
     )
     logger = logging.getLogger("generate_questions")
     if log_file:
-        logger.info("Logging to %s", log_file)
+        logger.info("Logging to %s", rel_to_root(log_file))
 
     if not Path(args.input).exists():
         logger.error(
             "Input file %s not found — run scripts/01_collect_guardian_news.py first.",
-            args.input,
+            rel_to_root(args.input),
         )
         return 1
 
@@ -217,7 +228,7 @@ def main(argv=None) -> int:
         logger.warning(
             "Interrupted — completed articles are already saved to %s; "
             "re-run the same command to resume.",
-            output_fp,
+            rel_to_root(output_fp),
         )
         return 130
 
@@ -229,7 +240,7 @@ def main(argv=None) -> int:
         summary["articles_skipped"],
         summary["articles_failed"],
         summary["elapsed_seconds"],
-        summary["output_fp"],
+        rel_to_root(summary["output_fp"]),
     )
     if summary["articles_failed"]:
         logger.warning(

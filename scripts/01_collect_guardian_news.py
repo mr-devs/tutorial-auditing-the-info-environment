@@ -24,6 +24,8 @@ Inputs
 - --section, --tag: restrict to a Guardian section or editorial tag
 - --from-date, --to-date: publication date window (YYYY-MM-DD)
 - --order-by: newest (default), oldest, or relevance
+- --show-fields: which article fields to request (default: bodyText headline
+  byline trailText wordcount; if passed, only your list is requested)
 - --page-size: articles per API call, 1-50
 - --max-articles: cap per query (default 200)
 - --daily-budget: max API calls for the run (default 500, the free-tier cap)
@@ -35,9 +37,10 @@ Inputs
 Outputs
 -------
 A JSONL file (default data/articles/guardian_articles.jsonl), one article per
-line with keys: id, url, published, section, headline, byline, trail_text,
-wordcount, body_text. Appended incrementally (crash-safe); re-running the
-same command skips articles already saved.
+line with keys: id, url, published, section, plus one snake_case key per
+requested show-field (defaults: headline, byline, trail_text, wordcount,
+body_text). Appended incrementally (crash-safe); re-running the same command
+skips articles already saved.
 
 References:
 ----------
@@ -48,11 +51,13 @@ Author: Matthew DeVerna
 
 import argparse
 import logging
+import os
 from datetime import date, datetime
 
 from toolkit import config
 from toolkit.guardian import (
     DEFAULT_DAILY_BUDGET,
+    DEFAULT_FIELDS,
     GuardianAPIError,
     GuardianClient,
     collect,
@@ -60,6 +65,11 @@ from toolkit.guardian import (
 from toolkit.utils import setup_logging
 
 DEFAULT_OUTPUT = f"{config.ARTICLES_DIR}/guardian_articles.jsonl"
+
+
+def rel_to_root(path) -> str:
+    """Show a path relative to the repo root (keeps --help output readable)."""
+    return os.path.relpath(path, config.REPO_ROOT)
 
 
 def iso_date(value: str) -> str:
@@ -118,6 +128,21 @@ def build_parser() -> argparse.ArgumentParser:
         default="newest",
         help="Result ordering (default: %(default)s).",
     )
+    search.add_argument(
+        "--show-fields",
+        nargs="+",
+        metavar="FIELD",
+        default=None,
+        help=(
+            "Article fields to request beyond the basics (id, url, publication "
+            "date, section). Space-separated, camelCase, as named by the API. "
+            "If omitted, the default set is requested: "
+            f"{' '.join(DEFAULT_FIELDS.split(','))}. If passed, ONLY the "
+            "fields you list are requested (e.g. --show-fields headline "
+            "standfirst thumbnail). Full field list: "
+            "https://open-platform.theguardian.com/documentation/search"
+        ),
+    )
 
     volume = parser.add_argument_group("volume & pacing")
     volume.add_argument(
@@ -155,7 +180,10 @@ def build_parser() -> argparse.ArgumentParser:
     output.add_argument(
         "--output",
         default=DEFAULT_OUTPUT,
-        help="Output JSONL file, appended to incrementally (default: %(default)s).",
+        help=(
+            "Output JSONL file, appended to incrementally (default: "
+            f"{rel_to_root(DEFAULT_OUTPUT)}, relative to the repository root)."
+        ),
     )
     output.add_argument(
         "--no-resume",
@@ -209,7 +237,7 @@ def main(argv=None) -> int:
     log_file = args.log_file
     if args.create_log_file:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        log_file = f"logs/collect_guardian_news_{timestamp}.log"
+        log_file = f"{config.LOGS_DIR}/collect_guardian_news_{timestamp}.log"
 
     setup_logging(
         log_level=args.log_level,
@@ -219,7 +247,7 @@ def main(argv=None) -> int:
     )
     logger = logging.getLogger("collect_guardian_news")
     if log_file:
-        logger.info("Logging to %s", log_file)
+        logger.info("Logging to %s", rel_to_root(log_file))
 
     try:
         client = GuardianClient(
@@ -249,6 +277,11 @@ def main(argv=None) -> int:
                     to_date=args.to_date,
                     order_by=args.order_by,
                     page_size=args.page_size,
+                    show_fields=(
+                        ",".join(args.show_fields)
+                        if args.show_fields
+                        else DEFAULT_FIELDS
+                    ),
                 )
             except GuardianAPIError as e:
                 logger.error(str(e))
@@ -275,14 +308,14 @@ def main(argv=None) -> int:
             "Interrupted — %d new records already saved to %s; "
             "re-run the same command to resume.",
             total_new,
-            args.output,
+            rel_to_root(args.output),
         )
         return 130
 
     logger.info(
         "Done: %d new articles saved to %s (%d/%d calls used).",
         total_new,
-        args.output,
+        rel_to_root(args.output),
         client.calls_made,
         client.daily_budget,
     )
