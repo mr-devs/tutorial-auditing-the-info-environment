@@ -1,21 +1,15 @@
 """
-toolkit — shared utilities for the LLM fact-checking tutorial.
+toolkit — shared utilities for the auditing-the-information-environment
+tutorial (Guardian news → MCQ generation → LLM-as-judge → LLM horse race).
 
-Core modules (metrics, response_structure, text, prompts, io, utils,
-string_helpers) are copied from the llm-vs-human-fc-agreement project's
-toolkit and lightly adapted; config and playwright_helper are tutorial-local.
+Submodules are imported explicitly by consumers so lightweight users don't
+pay for heavy dependencies:
 
-Heavy-dependency submodules (providers, playwright_helper) are NOT imported
-here so that lightweight consumers don't pay the SDK/browser import cost.
-Import those submodules directly as needed:
-
+    from toolkit import guardian          # Guardian Content API collection
+    from toolkit import config            # keys, paths
+    from toolkit.utils import setup_logging
     from toolkit.providers import openai_provider
-    from toolkit.playwright_helper import scrape_article_text
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Matthew DeVerna"
-
-# Light-weight submodules safe to star-import.
-from .metrics import *
-from .utils import *

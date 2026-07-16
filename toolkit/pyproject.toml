@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "toolkit"
 version = "0.1.0"
-description = "Shared utilities for the LLM fact-checking tutorial (adapted from llm-vs-human-fc-agreement)"
+description = "Shared utilities for the auditing-the-information-environment tutorial"
 authors = [
     {name = "Matthew DeVerna"}
 ]

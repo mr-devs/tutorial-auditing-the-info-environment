@@ -1,56 +1,39 @@
-"""Global configuration for the LLM fact-checking tutorial.
+"""Global configuration for the tutorial.
 
 All API keys are read from environment variables — never hard-code keys.
 Export them before launching Jupyter/VS Code:
 
+    export GUARDIAN_API_KEY="..."      # free: https://open-platform.theguardian.com/access/
     export OPENAI_API_KEY="sk-..."
     export OPENROUTER_API_KEY="sk-or-..."
+
+The Guardian also offers the shared public key ``test`` for light
+experimentation without registering.
 """
 
 import os
 
-from openai import OpenAI
-from openrouter import OpenRouter
-
+GUARDIAN_API_KEY = os.getenv("GUARDIAN_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# Real PolitiFact fact-checks (scraped 2024-10-10), copied from the
-# llm-vs-human-fc-agreement project.
-FACTCHECK_DATA_PATH = os.getenv(
-    "FACTCHECK_DATA_PATH", "./data/fact_checks/2024-10-10_factchecks_cleaned.parquet"
-)
-ARTICLES_DIR = "./data/articles"
-QUESTIONS_DIR = "./data/questions"
+# Step 1 output: one JSONL file of Guardian articles per collection run.
+ARTICLES_DIR = os.getenv("ARTICLES_DIR", "./data/articles")
 
-# Second-best current OpenAI model (flagship tier below gpt-5.6-sol), used via
-# the Responses API with the native `web_search` tool where open-book behavior
-# is wanted.
 DEFAULT_LLM = "gpt-5.6-terra"
-
-# Heterogeneous model roster for the multi-agent debate module — the
-# second-best current model from each provider, mapped to a different
-# provider/model family via OpenRouter (OpenRouter model ids).
-DEBATE_MODEL_ROSTER = {
-    "explainer": "openai/gpt-5.6-terra",
-    "debater_general": "anthropic/claude-opus-4.8",
-    "debater_typology": "google/gemini-3.5-flash",
-    "judge": "x-ai/grok-4.3",
-    "refiner": "openai/gpt-5.6-terra",
-}
-
-# OpenRouter web-search plugin spec (works with any model on OpenRouter);
-# passed as `plugins=` to `client.chat.send` for roles that should search.
-OPENROUTER_WEB_PLUGIN = [{"id": "web"}]
 
 
 def get_openai_client():
+    from openai import OpenAI
+
     if not OPENAI_API_KEY:
         raise ValueError("Please export OPENAI_API_KEY as an environment variable.")
     return OpenAI(api_key=OPENAI_API_KEY)
 
 
 def get_openrouter_client():
+    from openrouter import OpenRouter
+
     if not OPENROUTER_API_KEY:
         raise ValueError("Please export OPENROUTER_API_KEY as an environment variable.")
     return OpenRouter(api_key=OPENROUTER_API_KEY)

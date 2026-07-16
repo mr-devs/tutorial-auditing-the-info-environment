@@ -5,7 +5,7 @@ Utility functions for LLM search auditing.
 import json
 import logging
 import os
-from typing import Dict, List, Any, Optional
+from typing import List, Optional
 
 import tldextract
 

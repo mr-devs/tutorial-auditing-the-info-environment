@@ -4,10 +4,7 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 .ruff_cache/
-# Runtime outputs are ignored, but the source fact-check dataset (copied from
-# llm-vs-human-fc-agreement) is tracked.
-data/*
-!data/fact_checks/
-data/fact_checks/*
-!data/fact_checks/2024-10-10_factchecks_cleaned.parquet
+# Runtime outputs (articles, questions, predictions) are never tracked.
+data/
+logs/
 .DS_Store
