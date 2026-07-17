@@ -3,9 +3,8 @@ Purpose: Select a seeded-random set of questions that passed the LLM judges,
 writing the full question records to JSONL for the downstream steps.
 
 A question "passes" one judge model when that model marked it
-answerable = True and faithful = True. A question is
-eligible for selection when at least --min-passing (default 2) judge models
-passed it.
+faithful = True. A question is eligible for selection when at least
+--min-passing (default 2) judge models passed it.
 
 Examples
 --------
@@ -32,6 +31,7 @@ Inputs
   inputs give the same selection
 - --min-passing: minimum judge models that must pass a question (default 2)
 - --output: output JSONL path (default data/questions/selected_questions.jsonl)
+- --show-failures: also list every failing judgment with its rationale
 - --log-level, --log-file: logging controls
 - --create-log-file: also log to a datetime-stamped file under logs/
 
@@ -68,13 +68,75 @@ def rel_to_root(path) -> str:
 def find_passing_question_ids(df: pd.DataFrame, min_passing: int) -> dict:
     """Return {question_id: n_models_passing} for questions passing the rule.
 
-    A row passes when answerable & faithful; a question passes
+    A row passes when faithful is True; a question passes
     overall when at least ``min_passing`` distinct models passed it.
     """
     df = df.copy()
-    df["passing"] = df["answerable"] & df["faithful"]
+    df["passing"] = df["faithful"]
     counts = df[df["passing"]].groupby("question_id")["judge_model"].nunique().to_dict()
     return {qid: n for qid, n in counts.items() if n >= min_passing}
+
+
+def log_judgment_summary(df: pd.DataFrame, logger, show_failures: bool) -> None:
+    """Log an analytical summary of the judgments behind the selection.
+
+    Covers per-judge pass rates, the judge-agreement distribution,
+    per-generator pass rates (when more than one generator is present),
+    and — with ``show_failures`` — every failing judgment with its
+    rationale.
+    """
+    df = df.copy()
+    df["passing"] = df["faithful"]
+    n_judges = df["judge_model"].nunique()
+
+    logger.info("Per-judge pass rates (%d judgments each):", len(df) // n_judges)
+    for model, g in df.groupby("judge_model"):
+        logger.info(
+            "  %-26s faithful %3.0f%%",
+            model,
+            g["faithful"].mean() * 100,
+        )
+
+    logger.info(
+        "Failure breakdown: %d of %d judgments marked faithful=False",
+        int((~df["faithful"]).sum()),
+        len(df),
+    )
+
+    per_q = df.groupby("question_id")["passing"].agg(["sum", "count"])
+    logger.info("Agreement (questions by number of judges passing them):")
+    for k in range(n_judges, -1, -1):
+        logger.info(
+            "  %d/%d judges: %d questions", k, n_judges, int((per_q["sum"] == k).sum())
+        )
+    unanimous = ((per_q["sum"] == 0) | (per_q["sum"] == per_q["count"])).mean()
+    logger.info(
+        "Unanimous verdicts (all judges agree pass/fail): %.0f%% of questions",
+        unanimous * 100,
+    )
+
+    if df["generator_model"].nunique() > 1:
+        logger.info("Per-generator pass rates:")
+        for gen, g in df.groupby("generator_model"):
+            logger.info(
+                "  %-26s faithful %3.0f%% (%d judgments)",
+                gen,
+                g["passing"].mean() * 100,
+                len(g),
+            )
+
+    if show_failures:
+        fails = df[~df["passing"]]
+        if fails.empty:
+            logger.info("No failing judgments.")
+        for qid, g in fails.groupby("question_id"):
+            logger.info("FAILED by %d judge(s): %s", len(g), qid)
+            for _, r in g.iterrows():
+                logger.info(
+                    "    %s marked faithful=False: %s",
+                    r["judge_model"],
+                    r["rationale"],
+                )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -129,7 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=2,
         help=(
             "Minimum number of judge models that must mark a question as "
-            "passing — answerable=True and faithful=True "
+            "passing — faithful=True "
             "(default: %(default)s)."
         ),
     )
@@ -142,6 +204,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Path for the output .jsonl file of selected questions; "
             f"relative paths resolve from the repo root (default: {rel_to_root(DEFAULT_OUTPUT)})."
+        ),
+    )
+    output.add_argument(
+        "--show-failures",
+        action="store_true",
+        help=(
+            "Also list every failing judgment — which judge failed which "
+            "question on which dimension, with its rationale."
         ),
     )
 
@@ -210,13 +280,14 @@ def main(argv=None) -> int:
     passing = find_passing_question_ids(df, args.min_passing)
     total_questions = df["question_id"].nunique()
     logger.info(
-        "%d of %d judged questions pass (>= %d of %d models: answerable "
-        "and faithful)",
+        "%d of %d judged questions (%.0f%%) pass (>= %d of %d models: faithful)",
         len(passing),
         total_questions,
+        100 * len(passing) / total_questions if total_questions else 0,
         args.min_passing,
         df["judge_model"].nunique(),
     )
+    log_judgment_summary(df, logger, show_failures=args.show_failures)
 
     if not passing:
         logger.error("No questions pass the selection rule — nothing to write.")
@@ -256,9 +327,10 @@ def main(argv=None) -> int:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     logger.info(
-        "Done: judged %d -> passing %d -> selected %d (seed %d) -> %s",
+        "Done: judged %d -> passing %d (%.0f%%) -> selected %d (seed %d) -> %s",
         total_questions,
         len(passing),
+        100 * len(passing) / total_questions,
         len(selected_ids),
         args.seed,
         rel_to_root(output_fp),

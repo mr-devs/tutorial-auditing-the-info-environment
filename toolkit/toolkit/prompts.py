@@ -52,16 +52,14 @@ ARTICLE TEXT:
 JUDGE_SYSTEM_PROMPT = """\
 You are an expert auditor of quiz questions. Each question was written from a
 specific news article; you will see the article, the question, its options,
-and which option was marked correct. Judge the question on two independent
-dimensions, answering True or False for each:
+and which option was marked correct. Judge the question on one dimension,
+answering True or False:
 
-- answerable: The question is well-formed and unambiguous, and given the
-  article exactly one option is defensible.
 - faithful: The MARKED correct option is stated or directly supported by the
-  article text (not hallucinated, not contradicted).
+  article text (not hallucinated, not contradicted), and no other option is
+  equally defensible given the article.
 
-Judge each dimension on its own merits; do not let one influence the other.
-Also give a 1-2 sentence rationale for your verdicts.
+Also give a 1-2 sentence rationale for your verdict.
 """
 
 

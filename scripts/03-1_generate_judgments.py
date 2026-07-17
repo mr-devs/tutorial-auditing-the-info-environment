@@ -1,7 +1,7 @@
 """
 Purpose: Have one LLM judge model evaluate generated multiple-choice
-questions against their source articles on two binary dimensions
-(answerable, faithful), writing one JSONL judgment per question.
+questions against their source articles on one binary dimension
+(faithful), writing one JSONL judgment per question.
 
 Run this script once per judge model, then merge the per-model files with
 scripts/03-2_combine_judgments.py.
@@ -49,7 +49,7 @@ Outputs
 A JSONL file (default data/judgments/judgments_<model>.jsonl), one judgment
 per line with keys: id, question_id, article_id, generator_provider,
 generator_model (whose question was judged), judge_model (who judged),
-answerable (bool), faithful (bool), rationale, judged_at.
+faithful (bool), rationale, judged_at.
 The judge sees the
 article headline + full text, the question, its lettered options, and the
 marked correct answer (never the generator's explanation). Appended

@@ -13,10 +13,11 @@ tests several LLM "contestants" on it, and ends with a live human-vs-LLM
    resume.
 2. **Generate multiple-choice questions** — use an LLM to convert each article
    into MCQs with structured (JSON) outputs.
-3. **LLM-as-judge** — a second LLM pass scores each MCQ on (a) quality and
-   answerability (well-formed, unambiguous, exactly one correct answer) and
-   (b) faithfulness to the source article (no hallucinated facts). The judge
-   emits a pass/fail verdict used to filter questions for Steps 4–5.
+3. **LLM-as-judge** — a second LLM pass scores each MCQ on faithfulness to
+   the source article: the marked correct answer is stated/supported by the
+   article (no hallucinated facts) and no other option is equally
+   defensible. The judge emits a pass/fail verdict used to filter questions
+   for Steps 4–5.
 4. **Test LLM answering methods** — evaluate LLMs on the vetted MCQs three
    ways: (1) closed-book (weights/training data only, no web search),
    (2) with web search, (3) a multi-agent debate framework. Covers input
@@ -59,7 +60,7 @@ All intermediate data is JSONL (append-safe, streamable, crash-safe).
 |---|---|
 | `toolkit/guardian.py` | **new** (Step 1) — Guardian API client, rate limiter, JSONL persistence/resume |
 | `toolkit/questions.py` | **new** (Step 2) — MCQ schema, generation orchestration (threadpool), JSONL/resume |
-| `toolkit/judgments.py` | **new** (Step 3) — judgment schema (3 booleans + rationale), judging orchestration, JSONL/resume |
+| `toolkit/judgments.py` | **new** (Step 3) — judgment schema (faithful boolean + rationale), judging orchestration, JSONL/resume |
 | `toolkit/prompts.py` | **new** (Step 2) — all prompt text (system constants + user-template builders) |
 | `toolkit/config.py` | kept, reworked — keys, paths, `SUPPORTED_MODELS` |
 | `toolkit/utils.py` | kept — `setup_logging`, `extract_domain`, `load_jsonl` |
@@ -92,7 +93,7 @@ original prototype the Step 1 notebook teaches from) and
 
 - [x] Step 1 — Guardian news collection (see `01_guardian_news.md`)
 - [x] Step 2 — MCQ generation (`02_mcq_generation.md`)
-- [x] Step 3 — LLM-as-judge (`03_llm_judge.md`) — scripts built; notebook deferred
+- [x] Step 3 — LLM-as-judge (`03_llm_judge.md`)
 - [ ] Step 4 — Answering methods (`04_answering_methods.md`)
 - [ ] Step 5 — Horse-race website (`05_horse_race_site.md`)
 - [ ] End of development — audit and clean up environment dependencies (root `pyproject.toml`)

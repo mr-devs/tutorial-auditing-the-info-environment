@@ -28,7 +28,7 @@ Outputs
 -------
 A tidy CSV where each row is ONE judgment (one question by one judge model),
 with columns: question_id, article_id, generator_provider, generator_model
-(whose question was judged), judge_model (who judged), answerable, faithful,
+(whose question was judged), judge_model (who judged), faithful,
 rationale, judged_at. Rows are sorted by question_id then judge_model.
 Every input line is validated against the judgment record schema; invalid or
 malformed lines are skipped with a warning.
@@ -59,7 +59,6 @@ CSV_COLUMNS = [
     "generator_provider",
     "generator_model",
     "judge_model",
-    "answerable",
     "faithful",
     "rationale",
     "judged_at",
@@ -75,7 +74,6 @@ class JudgmentRecord(BaseModel):
     generator_provider: Optional[str]
     generator_model: Optional[str]
     judge_model: str
-    answerable: bool
     faithful: bool
     rationale: str
     judged_at: str

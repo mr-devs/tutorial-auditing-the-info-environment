@@ -1,9 +1,8 @@
 """LLM-as-judge evaluation of generated multiple-choice questions.
 
 Step 3 of the tutorial pipeline: a judge model reads the source article and
-one question (options + marked correct answer) and returns two binary
-judgments — ``answerable`` and ``faithful`` — plus a short rationale,
-validated by Pydantic. Judgments are appended incrementally to
+one question (options + marked correct answer) and returns one binary
+judgment — ``faithful`` — plus a short rationale, validated by Pydantic. Judgments are appended incrementally to
 JSONL with resume keyed on question id, optionally fanned out across a
 ``ThreadPoolExecutor``.
 
@@ -49,19 +48,14 @@ class JudgmentError(RuntimeError):
 class Judgment(BaseModel):
     """One judge model's binary verdicts on one question."""
 
-    answerable: bool = Field(
-        description=(
-            "True if the question is well-formed and unambiguous, and given "
-            "the article exactly one option is defensible."
-        )
-    )
     faithful: bool = Field(
         description=(
             "True if the MARKED correct option is stated or directly "
-            "supported by the article text."
+            "supported by the article text, and no other option is equally "
+            "defensible given the article."
         )
     )
-    rationale: str = Field(description="1-2 sentences explaining the two verdicts.")
+    rationale: str = Field(description="1-2 sentences explaining the verdict.")
 
 
 def to_judgment_record(question: dict, parsed: Judgment, model: str) -> dict:
@@ -78,7 +72,6 @@ def to_judgment_record(question: dict, parsed: Judgment, model: str) -> dict:
         "generator_provider": question.get("provider"),
         "generator_model": question.get("model"),
         "judge_model": model,
-        "answerable": parsed.answerable,
         "faithful": parsed.faithful,
         "rationale": parsed.rationale,
         "judged_at": datetime.now(timezone.utc).isoformat(),
