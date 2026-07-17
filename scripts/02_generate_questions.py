@@ -72,8 +72,10 @@ def build_parser() -> argparse.ArgumentParser:
     inputs.add_argument(
         "--input",
         default=DEFAULT_INPUT,
+        metavar="PATH",
         help=(
-            "Articles JSONL produced by Step 1 (default: "
+            "Path to the articles .jsonl file produced by "
+            "scripts/01_collect_guardian_news.py (default: "
             f"{rel_to_root(DEFAULT_INPUT)}, relative to the repository root)."
         ),
     )
@@ -130,8 +132,9 @@ def build_parser() -> argparse.ArgumentParser:
     output.add_argument(
         "--output",
         default=None,
+        metavar="PATH",
         help=(
-            "Output JSONL file, appended to incrementally "
+            "Path for the output .jsonl file, appended to incrementally "
             "(default: data/questions/questions_<model>.jsonl)."
         ),
     )
@@ -156,7 +159,8 @@ def build_parser() -> argparse.ArgumentParser:
     log_dest.add_argument(
         "--log-file",
         default=None,
-        help="Also write logs to this exact file path (appended).",
+        metavar="PATH",
+        help="Path to a file to also write logs to (appended).",
     )
     log_dest.add_argument(
         "--create-log-file",

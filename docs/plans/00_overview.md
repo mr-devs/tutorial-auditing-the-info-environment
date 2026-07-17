@@ -31,10 +31,11 @@ tests several LLM "contestants" on it, and ends with a live human-vs-LLM
 
 ```
 Step 1  →  data/articles/*.jsonl      (one article per line)
-Step 2  →  data/questions/*.jsonl     (one MCQ per line, article id attached)
-Step 3  →  data/questions_vetted/*.jsonl  (judge verdicts; pass subset feeds on)
+Step 2  →  data/questions/questions_<model>.jsonl  (one MCQ per line, article id attached)
+Step 3  →  data/judgments/judgments_<model>.jsonl → judgments_combined.csv
+           → data/questions/selected_questions.jsonl (seeded n=100, ≥2 of 3 judges pass)
 Step 4  →  data/predictions/*.jsonl   (per-method LLM answers + accuracy)
-Step 5  →  live site consumes vetted questions + Step 4 results
+Step 5  →  live site consumes selected questions + Step 4 results
 ```
 
 All intermediate data is JSONL (append-safe, streamable, crash-safe).
@@ -60,6 +61,7 @@ All intermediate data is JSONL (append-safe, streamable, crash-safe).
 |---|---|
 | `toolkit/guardian.py` | **new** (Step 1) — Guardian API client, rate limiter, JSONL persistence/resume |
 | `toolkit/questions.py` | **new** (Step 2) — MCQ schema, generation orchestration (threadpool), JSONL/resume |
+| `toolkit/judgments.py` | **new** (Step 3) — judgment schema (3 booleans + rationale), judging orchestration, JSONL/resume |
 | `toolkit/prompts.py` | **new** (Step 2) — all prompt text (system constants + user-template builders) |
 | `toolkit/config.py` | kept, reworked — keys, paths, `SUPPORTED_MODELS` |
 | `toolkit/utils.py` | kept — `setup_logging`, `extract_domain`, `load_jsonl` |
@@ -92,7 +94,7 @@ original prototype the Step 1 notebook teaches from) and
 
 - [x] Step 1 — Guardian news collection (see `01_guardian_news.md`)
 - [x] Step 2 — MCQ generation (`02_mcq_generation.md`)
-- [ ] Step 3 — LLM-as-judge (`03_llm_judge.md`)
+- [x] Step 3 — LLM-as-judge (`03_llm_judge.md`) — scripts built; notebook deferred
 - [ ] Step 4 — Answering methods (`04_answering_methods.md`)
 - [ ] Step 5 — Horse-race website (`05_horse_race_site.md`)
 - [ ] End of development — audit and clean up environment dependencies (root `pyproject.toml`)

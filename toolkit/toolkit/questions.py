@@ -31,7 +31,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from toolkit import config, prompts
+from toolkit import config, prompts, providers
 
 logger = logging.getLogger(__name__)
 
@@ -69,20 +69,16 @@ class ArticleQuestions(BaseModel):
 
 
 def _resolve_provider(provider: str):
-    """Return ``(run_parsed, default_model)`` for a provider name.
-
-    Provider modules are imported lazily so consumers only pay for the SDKs
-    they actually use.
-    """
-    if provider == "openai":
-        from toolkit.providers import openai_provider
-
-        return openai_provider.run_parsed, config.DEFAULT_OPENAI_MODEL
-    if provider == "gemini":
-        from toolkit.providers import gemini_provider
-
-        return gemini_provider.run_parsed, config.DEFAULT_GEMINI_MODEL
-    raise ValueError(f"Unknown provider: {provider!r} (expected 'openai' or 'gemini')")
+    """Return ``(run_parsed, default_model)`` for a provider name."""
+    defaults = {
+        "openai": config.DEFAULT_OPENAI_MODEL,
+        "gemini": config.DEFAULT_GEMINI_MODEL,
+    }
+    if provider not in defaults:
+        raise ValueError(
+            f"Unknown provider: {provider!r} (expected 'openai' or 'gemini')"
+        )
+    return providers.get_run_parsed(provider), defaults[provider]
 
 
 def to_question_records(

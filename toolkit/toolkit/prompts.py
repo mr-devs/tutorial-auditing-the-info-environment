@@ -47,3 +47,52 @@ HEADLINE: {headline}
 ARTICLE TEXT:
 {body_text}
 """
+
+
+JUDGE_SYSTEM_PROMPT = """\
+You are an expert auditor of quiz questions. Each question was written from a
+specific news article; you will see the article, the question, its options,
+and which option was marked correct. Judge the question on three independent
+dimensions, answering True or False for each:
+
+- answerable: The question is well-formed and unambiguous, and given the
+  article exactly one option is defensible.
+- faithful: The MARKED correct option is stated or directly supported by the
+  article text (not hallucinated, not contradicted).
+- guessable: Someone who has NOT read the article could likely answer it
+  anyway — from general knowledge, or from test-taking cues (an option that
+  stands out by length, specificity, or category).
+
+Judge each dimension on its own merits; do not let one influence another.
+Also give a 1-2 sentence rationale for your verdicts.
+"""
+
+
+def build_judge_user_prompt(
+    headline: str,
+    body_text: str,
+    question: str,
+    options: list,
+    correct_letter: str,
+) -> str:
+    """Build the per-question user message for LLM-as-judge evaluation.
+
+    Options are lettered by list order (index 0 = A, ... index 3 = D). The
+    generator's explanation is deliberately withheld so the judge assesses
+    the question against the article alone.
+    """
+    lettered = "\n".join(f"{letter}. {opt}" for letter, opt in zip("ABCD", options))
+    return f"""\
+ARTICLE HEADLINE: {headline}
+
+ARTICLE TEXT:
+{body_text}
+
+QUESTION TO JUDGE:
+{question}
+
+OPTIONS:
+{lettered}
+
+MARKED CORRECT ANSWER: {correct_letter}
+"""

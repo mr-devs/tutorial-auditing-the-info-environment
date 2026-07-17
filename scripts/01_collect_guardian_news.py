@@ -180,9 +180,11 @@ def build_parser() -> argparse.ArgumentParser:
     output.add_argument(
         "--output",
         default=DEFAULT_OUTPUT,
+        metavar="PATH",
         help=(
-            "Output JSONL file, appended to incrementally (default: "
-            f"{rel_to_root(DEFAULT_OUTPUT)}, relative to the repository root)."
+            "Path for the output .jsonl file, appended to incrementally "
+            f"(default: {rel_to_root(DEFAULT_OUTPUT)}, relative to the "
+            "repository root)."
         ),
     )
     output.add_argument(
@@ -214,7 +216,8 @@ def build_parser() -> argparse.ArgumentParser:
     log_dest.add_argument(
         "--log-file",
         default=None,
-        help="Also write logs to this exact file path (appended).",
+        metavar="PATH",
+        help="Path to a file to also write logs to (appended).",
     )
     log_dest.add_argument(
         "--create-log-file",

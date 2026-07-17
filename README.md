@@ -9,7 +9,7 @@ tests LLM "contestants" on it three different ways, and finishes with a live
 |---|---|---|---|
 | 1 | `notebooks/01_guardian_news_collection.ipynb` | `scripts/01_collect_guardian_news.py` | Scrape Guardian articles (full body text) into JSONL |
 | 2 | `notebooks/02_question_generation.ipynb` | `scripts/02_generate_questions.py` | LLMs generate multiple-choice questions from the articles (OpenAI + Gemini, structured outputs, threaded) |
-| 3 | *(coming)* | *(coming)* | LLM-as-judge vets each question (quality, faithfulness, difficulty) |
+| 3 | *(coming)* | `scripts/03-1_generate_judgments.py` → `scripts/03-2_combine_judgments.py` → `scripts/03-3_select_questions.py` | LLM judges vet each question (answerable / faithful / guessable); a seeded random set of passers advances |
 | 4 | *(coming)* | *(coming)* | LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate |
 | 5 | *(coming)* | *(coming)* | Live website: humans vs. LLM methods, compared in real time |
 
@@ -101,6 +101,31 @@ Each run writes `data/questions/questions_<model>.jsonl` (one question per
 line, schema-validated). `--parallel` fans articles out to a thread pool;
 resume works exactly like Step 1 — re-running skips articles that already
 have questions.
+
+## Step 3 quick start
+
+Three judge models vet every question on three binary dimensions
+(answerable, faithful, guessable); questions passing at least 2 of 3 judges
+are eligible, and a seeded random 100 advance:
+
+```bash
+# 1. Judge (once per judge model)
+for M in gpt-5.6-luna gpt-5.5-2026-04-23 gpt-5.4-mini-2026-03-17; do
+  uv run python scripts/03-1_generate_judgments.py \
+      --questions data/questions/questions_gpt-5.6-terra.jsonl \
+      --articles data/articles/guardian_articles.jsonl \
+      --model $M --parallel
+done
+
+# 2. Merge the per-model judgment files into one tidy CSV
+uv run python scripts/03-2_combine_judgments.py \
+    --input-dir data/judgments --glob 'judgments_*.jsonl'
+
+# 3. Seeded random selection of 100 passing questions
+uv run python scripts/03-3_select_questions.py \
+    --input data/judgments/judgments_combined.csv \
+    --questions data/questions/questions_gpt-5.6-terra.jsonl
+```
 
 ## Repository layout
 

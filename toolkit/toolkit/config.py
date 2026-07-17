@@ -32,6 +32,9 @@ ARTICLES_DIR = os.getenv("ARTICLES_DIR", str(REPO_ROOT / "data" / "articles"))
 # Step 2 output: one JSONL file of generated questions per provider run.
 QUESTIONS_DIR = os.getenv("QUESTIONS_DIR", str(REPO_ROOT / "data" / "questions"))
 
+# Step 3 output: one JSONL file of judgments per judge-model run.
+JUDGMENTS_DIR = os.getenv("JUDGMENTS_DIR", str(REPO_ROOT / "data" / "judgments"))
+
 # Datetime-stamped log files from the scripts' --create-log-file flag.
 LOGS_DIR = os.getenv("LOGS_DIR", str(REPO_ROOT / "logs"))
 
@@ -47,6 +50,14 @@ SUPPORTED_MODELS = {
 # Default generator models when only a provider is specified.
 DEFAULT_OPENAI_MODEL = "gpt-5.6-terra"
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+
+# Judge models for Step 3 (run 03-1_generate_judgments.py once per model),
+# mapped to the provider that serves them.
+JUDGE_MODELS = {
+    "gpt-5.6-luna": "openai",
+    "gpt-5.5-2026-04-23": "openai",
+    "gpt-5.4-mini-2026-03-17": "openai",
+}
 
 
 def get_openai_client():
