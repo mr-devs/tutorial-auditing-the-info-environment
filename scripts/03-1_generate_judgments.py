@@ -1,7 +1,7 @@
 """
 Purpose: Have one LLM judge model evaluate generated multiple-choice
-questions against their source articles on three binary dimensions
-(answerable, faithful, guessable), writing one JSONL judgment per question.
+questions against their source articles on two binary dimensions
+(answerable, faithful), writing one JSONL judgment per question.
 
 Run this script once per judge model, then merge the per-model files with
 scripts/03-2_combine_judgments.py.
@@ -47,8 +47,10 @@ Inputs
 Outputs
 -------
 A JSONL file (default data/judgments/judgments_<model>.jsonl), one judgment
-per line with keys: id, question_id, article_id, model, answerable (bool),
-faithful (bool), guessable (bool), rationale, judged_at. The judge sees the
+per line with keys: id, question_id, article_id, generator_provider,
+generator_model (whose question was judged), judge_model (who judged),
+answerable (bool), faithful (bool), rationale, judged_at.
+The judge sees the
 article headline + full text, the question, its lettered options, and the
 marked correct answer (never the generator's explanation). Appended
 incrementally (crash-safe); re-running the same command skips questions
@@ -65,7 +67,7 @@ from pathlib import Path
 
 from toolkit import config
 from toolkit.judgments import judge_questions
-from toolkit.utils import load_jsonl, setup_logging
+from toolkit.utils import load_jsonl, resolve_path, setup_logging
 
 
 def rel_to_root(path) -> str:
@@ -87,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Path to the questions .jsonl file produced by "
             "scripts/02_generate_questions.py, e.g. "
-            "data/questions/questions_gpt-5.6-terra.jsonl."
+            "data/questions/questions_gpt-5.6-terra.jsonl; relative paths resolve from the repo root."
         ),
     )
     inputs.add_argument(
@@ -97,7 +99,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Path to the articles .jsonl file produced by "
             "scripts/01_collect_guardian_news.py, e.g. "
-            "data/articles/guardian_articles.jsonl — must be the file the "
+            "data/articles/guardian_articles.jsonl (relative paths resolve from the repo root) "
+            "— must be the file the "
             "questions were generated from, so every question's article "
             "(headline + full text) can be shown to the judge."
         ),
@@ -150,7 +153,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="PATH",
         help=(
-            "Path for the output .jsonl file, appended to incrementally "
+            "Path for the output .jsonl file, appended to incrementally; "
+            "relative paths resolve from the repo root "
             "(default: data/judgments/judgments_<model>.jsonl)."
         ),
     )
@@ -176,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--log-file",
         default=None,
         metavar="PATH",
-        help="Path to a file to also write logs to (appended).",
+        help="Path to a file to also write logs to (appended); relative paths resolve from the repo root.",
     )
     log_dest.add_argument(
         "--create-log-file",
@@ -192,6 +196,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    args.questions = resolve_path(args.questions)
+    args.articles = resolve_path(args.articles)
+    if args.output:
+        args.output = resolve_path(args.output)
+    if args.log_file:
+        args.log_file = resolve_path(args.log_file)
 
     output_fp = args.output or f"{config.JUDGMENTS_DIR}/judgments_{args.model}.jsonl"
 
@@ -264,7 +275,7 @@ def main(argv=None) -> int:
     logger.info(
         "Done: %d judgments by %s (%d skipped, %d failed) in %.1fs -> %s",
         summary["new_records"],
-        summary["model"],
+        summary["judge_model"],
         summary["skipped"],
         summary["failed"],
         summary["elapsed_seconds"],

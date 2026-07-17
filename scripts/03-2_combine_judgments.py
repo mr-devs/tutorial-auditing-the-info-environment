@@ -27,8 +27,9 @@ Inputs
 Outputs
 -------
 A tidy CSV where each row is ONE judgment (one question by one judge model),
-with columns: question_id, article_id, model, answerable, faithful,
-guessable, rationale, judged_at. Rows are sorted by question_id then model.
+with columns: question_id, article_id, generator_provider, generator_model
+(whose question was judged), judge_model (who judged), answerable, faithful,
+rationale, judged_at. Rows are sorted by question_id then judge_model.
 Every input line is validated against the judgment record schema; invalid or
 malformed lines are skipped with a warning.
 
@@ -42,21 +43,24 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from typing import Optional
+
 import pandas as pd
 from pydantic import BaseModel, ValidationError
 
 from toolkit import config
-from toolkit.utils import setup_logging
+from toolkit.utils import resolve_path, setup_logging
 
 DEFAULT_OUTPUT = f"{config.JUDGMENTS_DIR}/judgments_combined.csv"
 
 CSV_COLUMNS = [
     "question_id",
     "article_id",
-    "model",
+    "generator_provider",
+    "generator_model",
+    "judge_model",
     "answerable",
     "faithful",
-    "guessable",
     "rationale",
     "judged_at",
 ]
@@ -68,10 +72,11 @@ class JudgmentRecord(BaseModel):
     id: str
     question_id: str
     article_id: str
-    model: str
+    generator_provider: Optional[str]
+    generator_model: Optional[str]
+    judge_model: str
     answerable: bool
     faithful: bool
-    guessable: bool
     rationale: str
     judged_at: str
 
@@ -113,7 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help=(
             "Path to the directory containing the per-model judgment .jsonl "
-            "files, e.g. data/judgments."
+            "files, e.g. data/judgments; relative paths resolve from the repo root."
         ),
     )
     inputs.add_argument(
@@ -132,8 +137,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_OUTPUT,
         metavar="PATH",
         help=(
-            "Path for the output .csv file (default: "
-            f"{rel_to_root(DEFAULT_OUTPUT)}, relative to the repository root)."
+            "Path for the output .csv file; "
+            f"relative paths resolve from the repo root (default: {rel_to_root(DEFAULT_OUTPUT)})."
         ),
     )
 
@@ -149,7 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--log-file",
         default=None,
         metavar="PATH",
-        help="Path to a file to also write logs to (appended).",
+        help="Path to a file to also write logs to (appended); relative paths resolve from the repo root.",
     )
     log_dest.add_argument(
         "--create-log-file",
@@ -165,6 +170,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    args.input_dir = resolve_path(args.input_dir)
+    args.output = resolve_path(args.output)
+    if args.log_file:
+        args.log_file = resolve_path(args.log_file)
 
     log_file = args.log_file
     if args.create_log_file:
@@ -206,7 +216,11 @@ def main(argv=None) -> int:
         return 1
 
     df = pd.DataFrame([r.model_dump() for r in all_records])
-    df = df[CSV_COLUMNS].sort_values(["question_id", "model"]).reset_index(drop=True)
+    df = (
+        df[CSV_COLUMNS]
+        .sort_values(["question_id", "judge_model"])
+        .reset_index(drop=True)
+    )
 
     output_fp = Path(args.output)
     output_fp.parent.mkdir(parents=True, exist_ok=True)
@@ -216,7 +230,7 @@ def main(argv=None) -> int:
         "Done: %d judgments (%d questions x %d models) from %d files -> %s",
         len(df),
         df["question_id"].nunique(),
-        df["model"].nunique(),
+        df["judge_model"].nunique(),
         len(files),
         rel_to_root(output_fp),
     )

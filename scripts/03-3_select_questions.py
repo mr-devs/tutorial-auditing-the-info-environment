@@ -3,7 +3,7 @@ Purpose: Select a seeded-random set of questions that passed the LLM judges,
 writing the full question records to JSONL for the downstream steps.
 
 A question "passes" one judge model when that model marked it
-answerable = True, faithful = True, and guessable = False. A question is
+answerable = True and faithful = True. A question is
 eligible for selection when at least --min-passing (default 2) judge models
 passed it.
 
@@ -55,7 +55,7 @@ from pathlib import Path
 import pandas as pd
 
 from toolkit import config
-from toolkit.utils import load_jsonl, setup_logging
+from toolkit.utils import load_jsonl, resolve_path, setup_logging
 
 DEFAULT_OUTPUT = f"{config.QUESTIONS_DIR}/selected_questions.jsonl"
 
@@ -68,12 +68,12 @@ def rel_to_root(path) -> str:
 def find_passing_question_ids(df: pd.DataFrame, min_passing: int) -> dict:
     """Return {question_id: n_models_passing} for questions passing the rule.
 
-    A row passes when answerable & faithful & ~guessable; a question passes
+    A row passes when answerable & faithful; a question passes
     overall when at least ``min_passing`` distinct models passed it.
     """
     df = df.copy()
-    df["passing"] = df["answerable"] & df["faithful"] & ~df["guessable"]
-    counts = df[df["passing"]].groupby("question_id")["model"].nunique().to_dict()
+    df["passing"] = df["answerable"] & df["faithful"]
+    counts = df[df["passing"]].groupby("question_id")["judge_model"].nunique().to_dict()
     return {qid: n for qid, n in counts.items() if n >= min_passing}
 
 
@@ -91,7 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Path to the combined judgments .csv file produced by "
             "scripts/03-2_combine_judgments.py, e.g. "
-            "data/judgments/judgments_combined.csv."
+            "data/judgments/judgments_combined.csv; relative paths resolve from the repo root."
         ),
     )
     inputs.add_argument(
@@ -102,7 +102,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Path(s) to one or more questions .jsonl files from Step 2 "
             "(space-separated), e.g. data/questions/questions_gpt-5.6-terra.jsonl "
-            "— the source of the full question records written to the output."
+            "— the source of the full question records written to the output; "
+            "relative paths resolve from the repo root."
         ),
     )
 
@@ -128,7 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=2,
         help=(
             "Minimum number of judge models that must mark a question as "
-            "passing — answerable=True, faithful=True, guessable=False "
+            "passing — answerable=True and faithful=True "
             "(default: %(default)s)."
         ),
     )
@@ -139,8 +140,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_OUTPUT,
         metavar="PATH",
         help=(
-            "Path for the output .jsonl file of selected questions (default: "
-            f"{rel_to_root(DEFAULT_OUTPUT)}, relative to the repository root)."
+            "Path for the output .jsonl file of selected questions; "
+            f"relative paths resolve from the repo root (default: {rel_to_root(DEFAULT_OUTPUT)})."
         ),
     )
 
@@ -156,7 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--log-file",
         default=None,
         metavar="PATH",
-        help="Path to a file to also write logs to (appended).",
+        help="Path to a file to also write logs to (appended); relative paths resolve from the repo root.",
     )
     log_dest.add_argument(
         "--create-log-file",
@@ -172,6 +173,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    args.input = resolve_path(args.input)
+    args.questions = [resolve_path(q) for q in args.questions]
+    args.output = resolve_path(args.output)
+    if args.log_file:
+        args.log_file = resolve_path(args.log_file)
 
     log_file = args.log_file
     if args.create_log_file:
@@ -203,12 +210,12 @@ def main(argv=None) -> int:
     passing = find_passing_question_ids(df, args.min_passing)
     total_questions = df["question_id"].nunique()
     logger.info(
-        "%d of %d judged questions pass (>= %d of %d models: answerable, "
-        "faithful, not guessable)",
+        "%d of %d judged questions pass (>= %d of %d models: answerable "
+        "and faithful)",
         len(passing),
         total_questions,
         args.min_passing,
-        df["model"].nunique(),
+        df["judge_model"].nunique(),
     )
 
     if not passing:

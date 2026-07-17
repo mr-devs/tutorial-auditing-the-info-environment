@@ -62,7 +62,7 @@ from toolkit.guardian import (
     GuardianClient,
     collect,
 )
-from toolkit.utils import setup_logging
+from toolkit.utils import resolve_path, setup_logging
 
 DEFAULT_OUTPUT = f"{config.ARTICLES_DIR}/guardian_articles.jsonl"
 
@@ -182,9 +182,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_OUTPUT,
         metavar="PATH",
         help=(
-            "Path for the output .jsonl file, appended to incrementally "
-            f"(default: {rel_to_root(DEFAULT_OUTPUT)}, relative to the "
-            "repository root)."
+            "Path for the output .jsonl file, appended to incrementally; "
+            f"relative paths resolve from the repo root (default: {rel_to_root(DEFAULT_OUTPUT)})."
         ),
     )
     output.add_argument(
@@ -217,7 +216,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--log-file",
         default=None,
         metavar="PATH",
-        help="Path to a file to also write logs to (appended).",
+        help="Path to a file to also write logs to (appended); relative paths resolve from the repo root.",
     )
     log_dest.add_argument(
         "--create-log-file",
@@ -233,6 +232,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    args.output = resolve_path(args.output)
+    if args.log_file:
+        args.log_file = resolve_path(args.log_file)
 
     if not (args.query or args.section or args.tag):
         parser.error("provide at least one of --query, --section, or --tag")

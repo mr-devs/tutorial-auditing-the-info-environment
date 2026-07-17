@@ -9,7 +9,7 @@ tests LLM "contestants" on it three different ways, and finishes with a live
 |---|---|---|---|
 | 1 | `notebooks/01_guardian_news_collection.ipynb` | `scripts/01_collect_guardian_news.py` | Scrape Guardian articles (full body text) into JSONL |
 | 2 | `notebooks/02_question_generation.ipynb` | `scripts/02_generate_questions.py` | LLMs generate multiple-choice questions from the articles (OpenAI + Gemini, structured outputs, threaded) |
-| 3 | *(coming)* | `scripts/03-1_generate_judgments.py` → `scripts/03-2_combine_judgments.py` → `scripts/03-3_select_questions.py` | LLM judges vet each question (answerable / faithful / guessable); a seeded random set of passers advances |
+| 3 | *(coming)* | `scripts/03-1_generate_judgments.py` → `scripts/03-2_combine_judgments.py` → `scripts/03-3_select_questions.py` | LLM judges vet each question (answerable / faithful); a seeded random set of passers advances |
 | 4 | *(coming)* | *(coming)* | LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate |
 | 5 | *(coming)* | *(coming)* | Live website: humans vs. LLM methods, compared in real time |
 
@@ -104,9 +104,9 @@ have questions.
 
 ## Step 3 quick start
 
-Three judge models vet every question on three binary dimensions
-(answerable, faithful, guessable); questions passing at least 2 of 3 judges
-are eligible, and a seeded random 100 advance:
+Three judge models vet every question on two binary dimensions
+(answerable, faithful); questions passing both dimensions with at least
+2 of 3 judges are eligible, and a seeded random 100 advance:
 
 ```bash
 # 1. Judge (once per judge model)

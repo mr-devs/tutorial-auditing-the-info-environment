@@ -52,7 +52,7 @@ from pathlib import Path
 
 from toolkit import config
 from toolkit.questions import generate_for_articles
-from toolkit.utils import load_jsonl, setup_logging
+from toolkit.utils import load_jsonl, resolve_path, setup_logging
 
 DEFAULT_INPUT = f"{config.ARTICLES_DIR}/guardian_articles.jsonl"
 
@@ -75,8 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help=(
             "Path to the articles .jsonl file produced by "
-            "scripts/01_collect_guardian_news.py (default: "
-            f"{rel_to_root(DEFAULT_INPUT)}, relative to the repository root)."
+            "scripts/01_collect_guardian_news.py; "
+            f"relative paths resolve from the repo root (default: {rel_to_root(DEFAULT_INPUT)})."
         ),
     )
 
@@ -134,7 +134,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="PATH",
         help=(
-            "Path for the output .jsonl file, appended to incrementally "
+            "Path for the output .jsonl file, appended to incrementally; "
+            "relative paths resolve from the repo root "
             "(default: data/questions/questions_<model>.jsonl)."
         ),
     )
@@ -160,7 +161,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--log-file",
         default=None,
         metavar="PATH",
-        help="Path to a file to also write logs to (appended).",
+        help="Path to a file to also write logs to (appended); relative paths resolve from the repo root.",
     )
     log_dest.add_argument(
         "--create-log-file",
@@ -176,6 +177,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    args.input = resolve_path(args.input)
+    if args.output:
+        args.output = resolve_path(args.output)
+    if args.log_file:
+        args.log_file = resolve_path(args.log_file)
 
     provider = config.SUPPORTED_MODELS[args.model]
     output_fp = args.output or f"{config.QUESTIONS_DIR}/questions_{args.model}.jsonl"

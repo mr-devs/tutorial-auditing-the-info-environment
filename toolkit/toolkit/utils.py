@@ -5,9 +5,26 @@ Utility functions for LLM search auditing.
 import json
 import logging
 import os
+from pathlib import Path
 from typing import List, Optional
 
 import tldextract
+
+from toolkit import config
+
+
+def resolve_path(path) -> str:
+    """Resolve a user-supplied path against the repository root.
+
+    Absolute paths are returned unchanged; relative paths are interpreted
+    relative to the repo root (NOT the current working directory), so
+    ``data/articles/x.jsonl`` means the same thing no matter which directory
+    a script is launched from.
+    """
+    path = Path(path)
+    if path.is_absolute():
+        return str(path)
+    return str(Path(config.REPO_ROOT) / path)
 
 
 def setup_logging(

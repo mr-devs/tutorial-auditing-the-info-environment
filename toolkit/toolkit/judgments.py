@@ -1,9 +1,9 @@
 """LLM-as-judge evaluation of generated multiple-choice questions.
 
 Step 3 of the tutorial pipeline: a judge model reads the source article and
-one question (options + marked correct answer) and returns three binary
-judgments — ``answerable``, ``faithful``, ``guessable`` — plus a short
-rationale, validated by Pydantic. Judgments are appended incrementally to
+one question (options + marked correct answer) and returns two binary
+judgments — ``answerable`` and ``faithful`` — plus a short rationale,
+validated by Pydantic. Judgments are appended incrementally to
 JSONL with resume keyed on question id, optionally fanned out across a
 ``ThreadPoolExecutor``.
 
@@ -61,25 +61,25 @@ class Judgment(BaseModel):
             "supported by the article text."
         )
     )
-    guessable: bool = Field(
-        description=(
-            "True if someone who has NOT read the article could likely "
-            "answer via general knowledge or test-taking cues."
-        )
-    )
-    rationale: str = Field(description="1-2 sentences explaining the three verdicts.")
+    rationale: str = Field(description="1-2 sentences explaining the two verdicts.")
 
 
 def to_judgment_record(question: dict, parsed: Judgment, model: str) -> dict:
-    """Flatten one validated judgment into a JSONL-ready dict."""
+    """Flatten one validated judgment into a JSONL-ready dict.
+
+    Both sides of the evaluation are recorded explicitly: ``judge_model``
+    (who judged) and ``generator_provider``/``generator_model`` (whose
+    question was judged, copied from the Step 2 question record).
+    """
     return {
         "id": f"{model}__{question['id']}",
         "question_id": question["id"],
         "article_id": question["article_id"],
-        "model": model,
+        "generator_provider": question.get("provider"),
+        "generator_model": question.get("model"),
+        "judge_model": model,
         "answerable": parsed.answerable,
         "faithful": parsed.faithful,
-        "guessable": parsed.guessable,
         "rationale": parsed.rationale,
         "judged_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -164,7 +164,7 @@ def judge_questions(
 
     Returns a summary dict::
 
-        {"model", "judged", "skipped", "failed", "new_records",
+        {"judge_model", "judged", "skipped", "failed", "new_records",
          "elapsed_seconds", "output_fp"}
     """
     if model not in config.JUDGE_MODELS:
@@ -227,7 +227,7 @@ def judge_questions(
                 _handle(question, exc)
 
     return {
-        "model": model,
+        "judge_model": model,
         "judged": judged,
         "skipped": skipped,
         "failed": failed,

@@ -14,11 +14,9 @@ tests several LLM "contestants" on it, and ends with a live human-vs-LLM
 2. **Generate multiple-choice questions** — use an LLM to convert each article
    into MCQs with structured (JSON) outputs.
 3. **LLM-as-judge** — a second LLM pass scores each MCQ on (a) quality and
-   answerability (well-formed, unambiguous, exactly one correct answer),
-   (b) faithfulness to the source article (no hallucinated facts), and
-   (c) difficulty/guessability (plausible distractors; not answerable without
-   the article). The judge emits a pass/fail verdict used to filter questions
-   for Steps 4–5.
+   answerability (well-formed, unambiguous, exactly one correct answer) and
+   (b) faithfulness to the source article (no hallucinated facts). The judge
+   emits a pass/fail verdict used to filter questions for Steps 4–5.
 4. **Test LLM answering methods** — evaluate LLMs on the vetted MCQs three
    ways: (1) closed-book (weights/training data only, no web search),
    (2) with web search, (3) a multi-agent debate framework. Covers input
