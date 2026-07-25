@@ -44,11 +44,26 @@ This creates `.venv/`, installs every dependency, and installs the local
 
 ### Export your API keys
 
+The code reads API keys from environment variables. Set them by exporting
+each key in the terminal you'll work from (or add the lines to your shell
+profile to make them permanent):
+
 ```bash
 export GUARDIAN_API_KEY="..."
 export OPENAI_API_KEY="sk-..."
 export GEMINI_API_KEY="..."
 ```
 
-Keys are never stored in the repo. `SML_`-prefixed variants
-(e.g. `SML_OPENAI_API_KEY`) are checked first and take precedence.
+Keys are never stored in the repo. All key lookup goes through the
+`load_api_key` function in `toolkit/toolkit/providers/_keys.py` — if you
+prefer different environment variable names, edit that function to fit
+your setup.
+
+## Repository structure
+
+- [`notebooks/`](https://github.com/mr-devs/tutorial-auditing-the-info-environment/tree/main/notebooks) — demo notebooks for each step (`demos/`) and figure notebooks over the script outputs (`analysis/`).
+- [`scripts/`](https://github.com/mr-devs/tutorial-auditing-the-info-environment/tree/main/scripts) — research-ready CLI scripts for running each step at scale.
+- [`toolkit/`](https://github.com/mr-devs/tutorial-auditing-the-info-environment/tree/main/toolkit) — shared Python package used by the notebooks and scripts.
+- [`site/`](https://github.com/mr-devs/tutorial-auditing-the-info-environment/tree/main/site) — standalone quiz website (its own self-contained uv project).
+- `data/` — runtime outputs (git-ignored).
+- `logs/` — log files from script runs (git-ignored).
