@@ -10,5 +10,5 @@
   (closed-book, web search, multi-agent debate).
 - The site collects human answers and displays a live comparison of accuracy
   across all horses.
-- Artifacts: teaching notebook `notebooks/05_*.ipynb` (walking through the
+- Artifacts: demo notebook `notebooks/demos/05_*.ipynb` (walking through the
   design), the website/app itself, and any serving scripts.

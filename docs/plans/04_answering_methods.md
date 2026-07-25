@@ -1,8 +1,9 @@
 # Step 4 — Testing LLMs on the MCQs, three ways
 
 **Status: built.** Toolkit modules (`toolkit/answers.py`,
-`toolkit/debate.py`), three CLI scripts, teaching notebook
-(`notebooks/04_answering_methods.ipynb`).
+`toolkit/debate.py`), three CLI scripts, demo notebook
+(`notebooks/demos/04_answering_methods.ipynb`), analysis notebook
+(`notebooks/analysis/04_answer_analysis.ipynb`).
 
 ## Pipeline
 
@@ -143,15 +144,18 @@ method x model). 04-1 parallelizes with a ThreadPoolExecutor; 04-2 with an
 asyncio semaphore (each debate already bursts 3 concurrent calls per
 round, so keep `--max-workers` modest).
 
-## Teaching notebook
+## Notebooks
 
-`notebooks/04_answering_methods.ipynb`: the contestant prompt (and why the
-article must never leak into it), one live closed-book vs. web-search call
-on the same question, one live debate via the openai-agents SDK (top-level
-`await` in Jupyter) with the transcript printed, the CLI sweep, then
-figures from `answers_combined.csv` — accuracy by method x model, the
-closed-book → web-search paired gain per model, and final-round vote
-splits / outcome changes across the debates.
+Demo — `notebooks/demos/04_answering_methods.ipynb`: the contestant prompt
+(and why the article must never leak into it), one live closed-book vs.
+web-search call on the same question, one live debate via the openai-agents
+SDK (top-level `await` in Jupyter) with the transcript printed, and the CLI
+sweep as the closing call-to-action.
+
+Analysis — `notebooks/analysis/04_answer_analysis.ipynb`: figures from
+`answers_combined.csv` — accuracy by method x model, the closed-book →
+web-search paired gain per model, and final-round vote splits / outcome
+changes across the debates (from the debate JSONLs).
 
 ## Step 5 handoff
 

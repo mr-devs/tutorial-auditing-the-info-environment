@@ -13,7 +13,7 @@ incremental saving → resume → retries.
 
 | Artifact | Path |
 |---|---|
-| Teaching notebook | `notebooks/01_guardian_news_collection.ipynb` |
+| Demo notebook | `notebooks/demos/01_guardian_news_collection.ipynb` |
 | CLI script | `scripts/01_collect_guardian_news.py` |
 | Toolkit module | `toolkit/toolkit/guardian.py` |
 | Reference prototype (untouched) | `scripts/collect_guardian_news.py` |

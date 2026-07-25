@@ -14,7 +14,7 @@ parallel I/O-bound API calls (no batch APIs).
 
 | Artifact | Path |
 |---|---|
-| Teaching notebook | `notebooks/02_question_generation.ipynb` |
+| Demo notebook | `notebooks/demos/02_question_generation.ipynb` |
 | CLI script | `scripts/02_generate_questions.py` |
 | Toolkit modules | `toolkit/toolkit/questions.py`, `toolkit/toolkit/prompts.py`, reworked `toolkit/toolkit/providers/` |
 

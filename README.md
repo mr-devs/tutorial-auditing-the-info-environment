@@ -5,18 +5,20 @@ scrapes fresh news, turns it into a quiz, vets the quiz with an LLM judge,
 tests LLM "contestants" on it three different ways, and finishes with a live
 **horse race**: humans in the room vs. the LLMs.
 
-| Step | Notebook | Script | What happens |
+| Step | Demo notebook | Script | What happens |
 |---|---|---|---|
-| 1 | `notebooks/01_guardian_news_collection.ipynb` | `scripts/01_collect_guardian_news.py` | Scrape Guardian articles (full body text) into JSONL |
-| 2 | `notebooks/02_question_generation.ipynb` | `scripts/02_generate_questions.py` | LLMs generate multiple-choice questions from the articles (OpenAI + Gemini, structured outputs, threaded) |
-| 3 | `notebooks/03_llm_judge.ipynb` | `scripts/03-1_generate_judgments.py` → `scripts/03-2_combine_judgments.py` → `scripts/03-3_select_questions.py` | LLM judges vet each question for faithfulness to its article; a seeded random set of passers advances |
-| 4 | `notebooks/04_answering_methods.ipynb` | `scripts/04-1_generate_answers.py` + `scripts/04-2_generate_debate_answers.py` → `scripts/04-3_combine_answers.py` | LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate (openai-agents SDK) |
+| 1 | `notebooks/demos/01_guardian_news_collection.ipynb` | `scripts/01_collect_guardian_news.py` | Scrape Guardian articles (full body text) into JSONL |
+| 2 | `notebooks/demos/02_question_generation.ipynb` | `scripts/02_generate_questions.py` | LLMs generate multiple-choice questions from the articles (OpenAI + Gemini, structured outputs, threaded) |
+| 3 | `notebooks/demos/03_llm_judge.ipynb` (+ `notebooks/analysis/03_judgment_analysis.ipynb`) | `scripts/03-1_generate_judgments.py` → `scripts/03-2_combine_judgments.py` → `scripts/03-3_select_questions.py` | LLM judges vet each question for faithfulness to its article; a seeded random set of passers advances |
+| 4 | `notebooks/demos/04_answering_methods.ipynb` (+ `notebooks/analysis/04_answer_analysis.ipynb`) | `scripts/04-1_generate_answers.py` + `scripts/04-2_generate_debate_answers.py` → `scripts/04-3_combine_answers.py` | LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate (openai-agents SDK) |
 | 5 | *(coming)* | *(coming)* | Live website: humans vs. LLM methods, compared in real time |
 
-Each step ships a **teaching notebook** (the live walkthrough), a
+Each step ships a **demo notebook** (the live step-by-step walkthrough), a
 **research-ready CLI script**, and shared source code in the local
-**`toolkit`** package (installed *editable* by `uv sync`). Plans and design
-notes live in [`docs/plans/`](docs/plans/00_overview.md).
+**`toolkit`** package (installed *editable* by `uv sync`). Steps with scaled
+script outputs (3–4 so far) also ship an **analysis notebook** under
+`notebooks/analysis/` that loads those outputs and builds the figures. Plans
+and design notes live in [`docs/plans/`](docs/plans/00_overview.md).
 
 ## Setup
 
@@ -63,7 +65,8 @@ uv run jupyter notebook
 ```
 
 or open the repo in VS Code (launched from a terminal where the keys are
-exported), open a notebook under `notebooks/`, and select the `.venv`
+exported), open a notebook under `notebooks/demos/` (the figure notebooks
+for steps 3–4 live in `notebooks/analysis/`), and select the `.venv`
 kernel.
 
 ## Step 1 quick start
@@ -164,7 +167,8 @@ the JSONL.
 
 ```
 docs/plans/           # tutorial overview + one detailed plan per step
-notebooks/            # teaching notebooks (01_, 02_, ...)
+notebooks/demos/      # step-by-step demo notebooks (01_, 02_, ...)
+notebooks/analysis/   # figure notebooks over the script outputs (steps 3-4)
 scripts/              # research-ready CLI scripts (+ legacy prototypes)
 toolkit/toolkit/      # shared package: guardian.py, config.py, utils.py, providers/
 data/                 # runtime outputs (git-ignored)

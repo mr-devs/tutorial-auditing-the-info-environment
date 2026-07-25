@@ -43,12 +43,17 @@ All intermediate data is JSONL (append-safe, streamable, crash-safe).
 ## Repo conventions
 
 - Each step ships three artifacts:
-  1. a teaching notebook `notebooks/0N_*.ipynb` (live-demo walkthrough that
+  1. a demo notebook `notebooks/demos/0N_*.ipynb` (live-demo walkthrough that
      builds the step's logic piece by piece),
   2. a research-ready CLI script `scripts/0N_*.py` (argparse, logging,
      retries, resume),
   3. source code in the local editable **`toolkit`** package that the script
      imports (uv workspace member; `uv sync` installs it editable).
+- Steps with scaled script outputs (3–4 so far) additionally ship an
+  analysis notebook `notebooks/analysis/0N_*.ipynb` that loads those outputs
+  (`judgments_combined.csv`, `answers_combined.csv`, …) and builds the
+  figures; demos never depend on the scaled data, analyses never make LLM
+  calls that need API keys.
 - API keys come from environment variables (`GUARDIAN_API_KEY`,
   `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`) — never stored in
   the repo. LLM keys are resolved by `toolkit.providers.load_api_key`, which
@@ -65,6 +70,7 @@ All intermediate data is JSONL (append-safe, streamable, crash-safe).
 | `toolkit/answers.py` | **new** (Step 4) — answer schema, single-call answering methods (closed_book / web_search), JSONL/resume |
 | `toolkit/debate.py` | **new** (Step 4) — society-of-minds debate on the openai-agents SDK (GPT models only), asyncio orchestration, shares answers.py's schema/persistence |
 | `toolkit/prompts.py` | **new** (Step 2) — all prompt text (system constants + user-template builders) |
+| `toolkit/plotting.py` | **new** — shared matplotlib palette + `clean_axes` for the analysis notebooks |
 | `toolkit/config.py` | kept, reworked — keys, paths, `SUPPORTED_MODELS` |
 | `toolkit/utils.py` | kept — `setup_logging`, `extract_domain`, `load_jsonl` |
 | `toolkit/providers/` | reworked (Step 2) — `load_api_key` (SML_ fallback), OpenAI + Gemini adapters with a shared `run_parsed` interface |
@@ -82,7 +88,8 @@ actually import and remove anything unused.
 
 ```
 docs/plans/           # this overview + one detailed plan per step
-notebooks/            # 01_…, 02_…, … teaching notebooks
+notebooks/demos/      # 01_…, 02_…, … step-by-step demo notebooks
+notebooks/analysis/   # figure notebooks over script outputs (steps 3–4)
 scripts/              # 01_…, 02_…, … CLI scripts (+ legacy references)
 toolkit/toolkit/      # shared package (editable via uv workspace)
 data/                 # runtime outputs (git-ignored)

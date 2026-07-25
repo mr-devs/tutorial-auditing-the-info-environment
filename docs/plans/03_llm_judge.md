@@ -55,7 +55,8 @@ data/questions/selected_questions.jsonl   (seeded random n=100 passers)
 | Merge to CSV | `scripts/03-2_combine_judgments.py` |
 | Select final set | `scripts/03-3_select_questions.py` |
 | Toolkit module | `toolkit/toolkit/judgments.py` (+ judge prompts in `toolkit/toolkit/prompts.py`) |
-| Teaching notebook | `notebooks/03_llm_judge.ipynb` — live judge demo, rigged-question test, figures analyzing the combined CSV |
+| Demo notebook | `notebooks/demos/03_llm_judge.ipynb` — live judge demo, rigged-question test, the at-scale commands |
+| Analysis notebook | `notebooks/analysis/03_judgment_analysis.ipynb` — figures over the combined CSV (strictness, agreement, verdict matrix) + the seeded selection |
 
 ## Notes
 
