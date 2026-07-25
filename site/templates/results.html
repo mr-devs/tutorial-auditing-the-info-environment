@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Standings — The Horse Race{% endblock %}
+
+{% block content %}
+{% if not results.enough_data %}
+<section class="hero">
+  <p class="eyebrow">Standings</p>
+  <h1 class="hero-title">Too early to call</h1>
+  <p class="hero-copy">
+    {% if results.n_sessions == 0 %}
+    Nobody has finished a race yet.
+    {% else %}
+    Only {{ results.n_sessions }} race{{ '' if results.n_sessions == 1 else 's' }}
+    {{ 'has' if results.n_sessions == 1 else 'have' }} been completed.
+    {% endif %}
+    Standings open after {{ results.n_sessions + results.sessions_needed }}
+    finished races, so a handful of early runs can&rsquo;t skew the field.
+    {{ results.sessions_needed }} more to go.
+  </p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="/quiz">Be one of them</a>
+  </div>
+</section>
+{% else %}
+<section>
+  <p class="eyebrow">Standings &middot; {{ results.n_sessions }} finished races</p>
+  <h1 class="screen-title">The field so far</h1>
+  <div id="results-root"></div>
+  <script id="results-data" type="application/json">{{ results | tojson }}</script>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if results.enough_data %}<script src="/static/results.js"></script>{% endif %}
+{% endblock %}

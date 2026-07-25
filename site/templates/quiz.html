@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Race — The Horse Race{% endblock %}
+
+{% block content %}
+{% if not active_set %}
+<section class="hero">
+  <p class="eyebrow">Paddock closed</p>
+  <h1 class="hero-title">No quiz loaded yet</h1>
+  <p class="hero-copy">Come back once this week&rsquo;s questions are in.</p>
+</section>
+{% else %}
+<section id="quiz-root" data-topic="{{ active_set.topic }}">
+
+  <!-- Intro / consent card -->
+  <div id="screen-start" class="screen">
+    <p class="eyebrow">{{ active_set.topic }} &middot; week of {{ active_set.to_date }}</p>
+    <h1 class="screen-title">Ready to run?</h1>
+    <p class="hero-copy">
+      You&rsquo;ll get one question at a time. Pick an answer, set how confident
+      you feel (0&ndash;100), and submit. The clock runs from the moment a
+      question appears &mdash; but take the time you need; accuracy counts too.
+    </p>
+    <button id="btn-start" class="btn btn-primary">Start the clock</button>
+    <p id="start-error" class="form-error" hidden></p>
+  </div>
+
+  <!-- One question at a time -->
+  <div id="screen-question" class="screen" hidden>
+    <div class="race-bar">
+      <span class="race-progress mono" id="progress">Q 1/10</span>
+      <span class="race-timer mono" id="timer" aria-label="time elapsed">0:00</span>
+    </div>
+    <p class="eyebrow" id="q-context"></p>
+    <h2 class="question-text" id="q-text"></h2>
+    <div class="options" id="options" role="radiogroup" aria-label="answer options"></div>
+    <div class="confidence">
+      <label for="confidence-slider">
+        Confidence <span class="mono" id="confidence-value">50</span>
+      </label>
+      <input type="range" id="confidence-slider" min="0" max="100" value="50" step="1">
+      <div class="confidence-scale"><span>Guessing</span><span>Certain</span></div>
+    </div>
+    <button id="btn-submit" class="btn btn-primary" disabled>Lock in answer</button>
+    <p id="question-error" class="form-error" hidden></p>
+  </div>
+
+  <!-- Post-answer feedback -->
+  <div id="screen-feedback" class="screen" hidden>
+    <div class="race-bar">
+      <span class="race-progress mono" id="fb-progress"></span>
+      <span class="race-timer mono" id="fb-time"></span>
+    </div>
+    <p class="verdict" id="fb-verdict"></p>
+    <p class="fb-explanation" id="fb-explanation"></p>
+    <p class="fb-note">The AI horses are running this question in the background.
+      You&rsquo;ll see their answers at the finish line.</p>
+    <button id="btn-next" class="btn btn-primary">Next question</button>
+  </div>
+
+  <!-- Finish line -->
+  <div id="screen-summary" class="screen" hidden>
+    <p class="eyebrow">Photo finish</p>
+    <h1 class="screen-title" id="sum-headline"></h1>
+    <p class="hero-copy" id="sum-time"></p>
+    <div id="sum-lanes" class="finish-lanes"></div>
+    <p class="fb-note" id="sum-pending-note" hidden>
+      Some AI horses are still on the track &mdash; this updates live.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/results">See the standings</a>
+      <button id="btn-again" class="btn btn-ghost">Race again</button>
+    </div>
+  </div>
+
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if active_set %}<script src="/static/quiz.js"></script>{% endif %}
+{% endblock %}

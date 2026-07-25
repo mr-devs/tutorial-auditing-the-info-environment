@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if active_set %}
+<section class="hero">
+  <p class="eyebrow">This week in {{ active_set.topic }} &middot; {{ active_set.from_date }} &rarr; {{ active_set.to_date }}</p>
+  <h1 class="hero-title">Can you outrun a<br>machine that reads<br>the whole internet?</h1>
+  <p class="hero-copy">
+    {{ n_questions }} questions drawn from this week&rsquo;s Guardian coverage.
+    Every time you see a question, three AI models &mdash;
+    {{ model_names | join(', ') }} &mdash; get the same one at the same moment,
+    web search and all. Answers, confidence, and time on the clock are recorded
+    for every runner. Including you.
+  </p>
+  <div class="hero-lanes" aria-hidden="true">
+    <div class="lane"><span class="lane-name">You</span><span class="lane-track"><span class="lane-horse you">&#9632;</span></span></div>
+    {% for name in model_names %}
+    <div class="lane"><span class="lane-name">{{ name }}</span><span class="lane-track"><span class="lane-horse">&#9632;</span></span></div>
+    {% endfor %}
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="/quiz">Start a race</a>
+    <a class="btn btn-ghost" href="/results">See the standings</a>
+  </div>
+</section>
+{% else %}
+<section class="hero">
+  <p class="eyebrow">Paddock closed</p>
+  <h1 class="hero-title">No quiz loaded yet</h1>
+  <p class="hero-copy">
+    The weekly question set has not been generated. If you run this site,
+    seed it with <code>uv run python refresh_content.py</code>.
+  </p>
+</section>
+{% endif %}
+{% endblock %}
