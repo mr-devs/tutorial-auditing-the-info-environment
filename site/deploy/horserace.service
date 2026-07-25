@@ -1,0 +1,25 @@
+# systemd unit for the horse-race site.
+#
+# Install:
+#   sudo cp deploy/horserace.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now horserace
+#
+# IMPORTANT: exactly one worker. Background AI tasks and the thread pool
+# are per-process, and SQLite prefers a single writer process.
+
+[Unit]
+Description=Horse-race quiz site (humans vs. AI on news MCQs)
+After=network.target
+
+[Service]
+User=horserace
+Group=horserace
+WorkingDirectory=/opt/horserace/site
+EnvironmentFile=/etc/horserace.env
+ExecStart=/usr/local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
