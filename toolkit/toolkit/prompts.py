@@ -36,7 +36,7 @@ fewer rather than padding with weak ones.
 """
 
 
-def build_mcq_user_prompt(headline: str, body_text: str, n_questions: int = 3) -> str:
+def build_mcq_user_prompt(headline: str, body_text: str, n_questions: int = 1) -> str:
     """Build the per-article user message for MCQ generation.
 
     Parameters
@@ -45,7 +45,7 @@ def build_mcq_user_prompt(headline: str, body_text: str, n_questions: int = 3) -
         The article headline.
     body_text : str
         The full article body text.
-    n_questions : int, default 3
+    n_questions : int, default 1
         Number of questions to request.
 
     Returns
@@ -53,8 +53,9 @@ def build_mcq_user_prompt(headline: str, body_text: str, n_questions: int = 3) -
     str
         The formatted user message.
     """
+    plural = "s" if n_questions != 1 else ""
     return f"""\
-Write {n_questions} multiple-choice questions about the following news article.
+Write {n_questions} multiple-choice question{plural} about the following news article.
 
 HEADLINE: {headline}
 

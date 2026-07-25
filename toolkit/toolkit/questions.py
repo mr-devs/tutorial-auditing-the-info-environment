@@ -208,7 +208,7 @@ def generate_questions_for_article(
     *,
     provider: str = "openai",
     model: Optional[str] = None,
-    n_questions: int = 3,
+    n_questions: int = 1,
 ) -> list[dict]:
     """Generate validated question records for one article with one LLM call.
 
@@ -220,7 +220,7 @@ def generate_questions_for_article(
         Provider name ('openai' or 'gemini').
     model : str, optional
         Model name. If None, the provider's default model is used.
-    n_questions : int, default 3
+    n_questions : int, default 1
         Number of questions to request per article.
 
     Returns
@@ -259,7 +259,7 @@ def generate_for_articles(
     output_fp,
     provider: str = "openai",
     model: Optional[str] = None,
-    n_questions: int = 3,
+    n_questions: int = 1,
     parallel: bool = False,
     max_workers: int = 8,
     resume: bool = True,
@@ -277,7 +277,7 @@ def generate_for_articles(
         Provider name ('openai' or 'gemini').
     model : str, optional
         Model name. If None, the provider's default model is used.
-    n_questions : int, default 3
+    n_questions : int, default 1
         Number of questions to request per article.
     parallel : bool, default False
         Fan article calls out across a ``ThreadPoolExecutor``.
