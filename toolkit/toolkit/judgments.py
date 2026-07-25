@@ -46,7 +46,18 @@ class JudgmentError(RuntimeError):
 
 
 class Judgment(BaseModel):
-    """One judge model's binary verdicts on one question."""
+    """One judge model's binary verdicts on one question.
+
+    Field semantics live in the ``Field`` descriptions below.
+
+    Attributes
+    ----------
+    faithful : bool
+        True if the marked correct option is supported by the article and
+        no other option is equally defensible.
+    rationale : str
+        1-2 sentences explaining the verdict.
+    """
 
     faithful: bool = Field(
         description=(
@@ -64,6 +75,21 @@ def to_judgment_record(question: dict, parsed: Judgment, model: str) -> dict:
     Both sides of the evaluation are recorded explicitly: ``judge_model``
     (who judged) and ``generator_provider``/``generator_model`` (whose
     question was judged, copied from the Step 2 question record).
+
+    Parameters
+    ----------
+    question : dict
+        The Step 2 question record that was judged.
+    parsed : Judgment
+        The judge model's validated structured response.
+    model : str
+        Name of the judge model.
+
+    Returns
+    -------
+    dict
+        JSONL-ready judgment record with a unique ``id`` of the form
+        ``{judge_model}__{question_id}``.
     """
     return {
         "id": f"{model}__{question['id']}",
@@ -79,7 +105,20 @@ def to_judgment_record(question: dict, parsed: Judgment, model: str) -> dict:
 
 
 def append_records(records, output_fp) -> int:
-    """Append records to a JSONL file (creating parent dirs). Returns count."""
+    """Append records to a JSONL file, creating parent directories as needed.
+
+    Parameters
+    ----------
+    records : iterable of dict
+        Records to append, one JSON object per line.
+    output_fp : str or Path
+        Path of the JSONL file to append to.
+
+    Returns
+    -------
+    int
+        Number of records written.
+    """
     output_fp = Path(output_fp)
     output_fp.parent.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -93,7 +132,19 @@ def append_records(records, output_fp) -> int:
 def load_completed_question_ids(output_fp) -> set:
     """Return the set of question ids already judged in a JSONL file.
 
-    Missing file -> empty set. Malformed lines are skipped with a warning.
+    Parameters
+    ----------
+    output_fp : str or Path
+        Path of the judgments JSONL file to scan.
+
+    Returns
+    -------
+    set
+        Question ids found in the file. Empty if the file does not exist.
+
+    Notes
+    -----
+    Malformed lines are skipped with a warning.
     """
     output_fp = Path(output_fp)
     ids = set()
@@ -114,7 +165,29 @@ def load_completed_question_ids(output_fp) -> set:
 
 
 def judge_question(question: dict, article: dict, *, model: str) -> dict:
-    """One question -> one judge-model call -> a validated judgment record."""
+    """Judge one question against its source article with one model call.
+
+    Parameters
+    ----------
+    question : dict
+        Question record with ``"id"``, ``"question"``, ``"options"``, and
+        ``"correct_letter"``.
+    article : dict
+        The source article record with ``"headline"`` and ``"body_text"``.
+    model : str
+        Judge model name; must be a key of ``config.JUDGE_MODELS``.
+
+    Returns
+    -------
+    dict
+        A validated judgment record, as built by
+        :func:`to_judgment_record`.
+
+    Raises
+    ------
+    JudgmentError
+        If the judge model's response could not be parsed into the schema.
+    """
     run_parsed = providers.get_run_parsed(config.JUDGE_MODELS[model])
     parsed, _raw = run_parsed(
         model,
@@ -147,18 +220,49 @@ def judge_questions(
 ) -> dict:
     """Judge many questions with one model and append results to JSONL.
 
+    Parameters
+    ----------
+    questions : list of dict
+        Step 2 question records. Duplicate ids are dropped before
+        processing.
+    articles_by_id : dict
+        Mapping of article id to article record — pass the same articles
+        JSONL the questions were generated from.
+    output_fp : str or Path
+        Path of the JSONL file judgment records are appended to.
+    model : str
+        Judge model name; must be a key of ``config.JUDGE_MODELS``.
+    parallel : bool, default False
+        Fan judge calls out across a ``ThreadPoolExecutor``.
+    max_workers : int, default 8
+        Thread-pool size when ``parallel=True``.
+    resume : bool, default True
+        Skip questions whose ids already appear in ``output_fp``.
+
+    Returns
+    -------
+    dict
+        Summary dict::
+
+            {"judge_model", "judged", "skipped", "failed", "new_records",
+             "elapsed_seconds", "output_fp"}
+
+    Raises
+    ------
+    ValueError
+        If ``model`` is not a known judge model or the provider's API key
+        is not set.
+
+    Notes
+    -----
     Orchestration mirrors ``toolkit.questions.generate_for_articles``: with
     ``parallel=True`` questions are submitted to a ``ThreadPoolExecutor``
-    (the API calls are I/O-bound, so the waits overlap); the file is written
-    only from the main thread, one judgment appended as each arrives
-    (crash-safe). One failing question — including a question whose
-    ``article_id`` is missing from ``articles_by_id`` — is logged and
-    skipped; a re-run with ``resume=True`` retries exactly the failures.
-
-    Returns a summary dict::
-
-        {"judge_model", "judged", "skipped", "failed", "new_records",
-         "elapsed_seconds", "output_fp"}
+    (the API calls are I/O-bound, so the waits overlap); the file is
+    written only from the main thread, one judgment appended as each
+    arrives (crash-safe). One failing question — including a question
+    whose ``article_id`` is missing from ``articles_by_id`` — is logged
+    and skipped; a re-run with ``resume=True`` retries exactly the
+    failures.
     """
     if model not in config.JUDGE_MODELS:
         raise ValueError(
@@ -182,6 +286,7 @@ def judge_questions(
     start = time.monotonic()
 
     def _one(question):
+        """Judge one question, resolving its source article first."""
         article = articles_by_id.get(question["article_id"])
         if article is None:
             raise JudgmentError(
@@ -192,6 +297,7 @@ def judge_questions(
         return judge_question(question, article, model=model)
 
     def _handle(question, record_or_error):
+        """Record one question's outcome: append its record or log its error."""
         nonlocal judged, failed, new_records
         if isinstance(record_or_error, Exception):
             failed += 1

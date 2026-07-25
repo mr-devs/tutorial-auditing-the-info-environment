@@ -1,6 +1,4 @@
-"""
-Utility functions for LLM search auditing.
-"""
+"""Utility functions for LLM search auditing."""
 
 import json
 import logging
@@ -20,6 +18,16 @@ def resolve_path(path) -> str:
     relative to the repo root (NOT the current working directory), so
     ``data/articles/x.jsonl`` means the same thing no matter which directory
     a script is launched from.
+
+    Parameters
+    ----------
+    path : str or Path
+        The path to resolve.
+
+    Returns
+    -------
+    str
+        The resolved absolute path.
     """
     path = Path(path)
     if path.is_absolute():
@@ -33,20 +41,29 @@ def setup_logging(
     console_output: Optional[bool] = None,
     append_mode: bool = False,
 ) -> logging.Logger:
-    """
-    Set up logging configuration with explicit output destination requirements.
+    """Set up logging configuration with explicit output destination requirements.
 
-    Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Path to log file. If provided, logs will be written to file.
-        console_output: Whether to output logs to console/stdout. Must be explicitly set.
-        append_mode: Whether to append to existing log file (True) or overwrite (False)
+    Parameters
+    ----------
+    log_level : str, default "INFO"
+        Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+    log_file : str, optional
+        Path to log file. If provided, logs will be written to file.
+    console_output : bool, optional
+        Whether to output logs to console/stdout. Must be explicitly set.
+    append_mode : bool, default False
+        Whether to append to existing log file (True) or overwrite (False).
 
-    Returns:
-        Configured logger instance
+    Returns
+    -------
+    logging.Logger
+        Configured logger instance.
 
-    Raises:
-        ValueError: If neither console_output nor log_file destination is clearly specified
+    Raises
+    ------
+    ValueError
+        If neither console_output nor log_file destination is clearly
+        specified.
     """
     # Require explicit specification of output destination
     if console_output is None and log_file is None:
@@ -100,18 +117,18 @@ def setup_logging(
 
 
 def extract_domain(url: str) -> Optional[str]:
-    """
-    Extract base domain from URL using tldextract (without subdomains).
+    """Extract base domain from URL using tldextract (without subdomains).
 
     Parameters
     ----------
     url : str
-        The URL to extract domain from
+        The URL to extract domain from.
 
     Returns
     -------
     str or None
-        The extracted domain (e.g., 'example.com') or None if extraction fails
+        The extracted domain (e.g., 'example.com') or None if extraction
+        fails.
     """
     try:
         extracted = tldextract.extract(url)
@@ -126,14 +143,17 @@ def extract_domain(url: str) -> Optional[str]:
 
 
 def load_jsonl(filepath: str) -> List[str]:
-    """
-    Load jsonl file contents into a list.
+    """Load jsonl file contents into a list.
 
-    Args:
-        filepath: Path to the jsonl file
+    Parameters
+    ----------
+    filepath : str
+        Path to the jsonl file.
 
-    Returns:
-        List of strings, one per line
+    Returns
+    -------
+    list
+        Parsed JSON objects, one per line.
     """
     with open(filepath, "r", encoding="utf-8") as f:
         return [json.loads(line) for line in f if line]

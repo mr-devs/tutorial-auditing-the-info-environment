@@ -59,7 +59,7 @@ class BudgetExhausted(RuntimeError):
 
 
 def _is_retryable(exc: BaseException) -> bool:
-    """Transient failures only: network errors and 429/5xx responses."""
+    """Return True for transient failures: network errors and 429/5xx responses."""
     if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
         return True
     if isinstance(exc, requests.HTTPError) and exc.response is not None:
@@ -68,14 +68,20 @@ def _is_retryable(exc: BaseException) -> bool:
 
 
 class RateLimiter:
-    """Enforce a minimum interval between calls using a monotonic clock."""
+    """Enforce a minimum interval between calls using a monotonic clock.
+
+    Parameters
+    ----------
+    min_interval : float, default MIN_INTERVAL_SECONDS
+        Minimum number of seconds between consecutive calls.
+    """
 
     def __init__(self, min_interval: float = MIN_INTERVAL_SECONDS):
         self.min_interval = min_interval
         self._last_call: Optional[float] = None
 
     def wait(self) -> None:
-        """Sleep just long enough to keep calls >= min_interval apart."""
+        """Sleep just long enough to keep calls >= ``min_interval`` apart."""
         if self._last_call is not None:
             elapsed = time.monotonic() - self._last_call
             remaining = self.min_interval - elapsed
@@ -90,13 +96,24 @@ class GuardianClient:
 
     Parameters
     ----------
-    api_key : str
+    api_key : str, default ""
         Guardian API key. Falls back to the ``GUARDIAN_API_KEY`` environment
         variable (via ``toolkit.config``). The shared public key ``"test"``
         works for light experimentation.
-    daily_budget : int
+    daily_budget : int, default DEFAULT_DAILY_BUDGET
         Maximum number of API calls this client will make (free tier allows
         500/day). ``BudgetExhausted`` is raised once it would be exceeded.
+    calls_made : int, default 0
+        Number of API calls already counted against the budget.
+    rate_limiter : RateLimiter, optional
+        Limiter that keeps calls at least ``MIN_INTERVAL_SECONDS`` apart.
+    session : requests.Session, optional
+        HTTP session used for all requests.
+
+    Raises
+    ------
+    GuardianAPIError
+        If no API key is provided and ``GUARDIAN_API_KEY`` is not set.
     """
 
     api_key: str = ""
@@ -121,7 +138,7 @@ class GuardianClient:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def _get(self, params: dict) -> dict:
-        """One rate-limited, budget-counted GET. Returns the 'response' dict.
+        """Make one rate-limited, budget-counted GET and return the 'response' dict.
 
         Retries transient failures (network errors, 429/5xx) with exponential
         backoff; raises ``GuardianAPIError`` immediately on permanent 4xx and
@@ -166,10 +183,43 @@ class GuardianClient:
     ) -> dict:
         """Fetch one page of search results.
 
-        Returns the raw API 'response' dict with keys such as ``total``,
-        ``pages``, ``currentPage``, and ``results``. All filters are
-        optional; at least one of query/section/tag is recommended.
-        Dates are ``YYYY-MM-DD`` strings.
+        All filters are optional; at least one of query/section/tag is
+        recommended.
+
+        Parameters
+        ----------
+        query : str, optional
+            Search phrase. If None, the search is filter-only.
+        page : int, default 1
+            Which page of results to fetch.
+        page_size : int, default DEFAULT_PAGE_SIZE
+            Results per page (the API maximum is 50).
+        section : str, optional
+            Restrict results to a Guardian section (e.g. ``"politics"``).
+        tag : str, optional
+            Restrict results to a Guardian tag.
+        from_date : str, optional
+            Earliest publication date, as a ``YYYY-MM-DD`` string.
+        to_date : str, optional
+            Latest publication date, as a ``YYYY-MM-DD`` string.
+        order_by : str, default "newest"
+            Sort order for results.
+        show_fields : str, default DEFAULT_FIELDS
+            Comma-separated list of extra fields to request per article.
+
+        Returns
+        -------
+        dict
+            The raw API 'response' dict with keys such as ``total``,
+            ``pages``, ``currentPage``, and ``results``.
+
+        Raises
+        ------
+        GuardianAPIError
+            On a permanent (non-retryable) API failure such as a bad key
+            or malformed parameters.
+        BudgetExhausted
+            If the call would exceed the daily call budget.
         """
         params = {
             "page": page,
@@ -199,8 +249,31 @@ class GuardianClient:
 
         Stops at ``max_articles``, ``max_pages``, the last available page,
         or when the daily budget runs out (``BudgetExhausted`` propagates).
-        Extra keyword arguments are passed to :meth:`fetch_page`
-        (section, tag, from_date, to_date, order_by, page_size, ...).
+
+        Parameters
+        ----------
+        query : str, optional
+            Search phrase. If None, the search is filter-only.
+        max_articles : int, optional
+            Stop after yielding this many articles. If None, no limit.
+        max_pages : int, optional
+            Stop after fetching this many pages. If None, no limit.
+        **filters
+            Extra keyword arguments passed to :meth:`fetch_page`
+            (section, tag, from_date, to_date, order_by, page_size, ...).
+
+        Yields
+        ------
+        dict
+            One flattened article record per result, as produced by
+            :func:`to_record`.
+
+        Raises
+        ------
+        GuardianAPIError
+            On a permanent (non-retryable) API failure.
+        BudgetExhausted
+            When the next call would exceed the daily call budget.
         """
         yielded = 0
         page = 1
@@ -241,6 +314,17 @@ def to_record(article: dict) -> dict:
     envelope; every requested ``show-fields`` field is merged in with its
     name converted to snake_case (``bodyText`` -> ``body_text``), so records
     automatically match whatever fields the search asked for.
+
+    Parameters
+    ----------
+    article : dict
+        One raw result from the API's ``results`` list.
+
+    Returns
+    -------
+    dict
+        Flattened record with keys ``id``, ``url``, ``published``,
+        ``section``, plus one snake_case key per requested field.
     """
     record = {
         "id": article.get("id"),
@@ -254,7 +338,20 @@ def to_record(article: dict) -> dict:
 
 
 def append_records(records, output_fp) -> int:
-    """Append records to a JSONL file (creating parent dirs). Returns count."""
+    """Append records to a JSONL file, creating parent directories as needed.
+
+    Parameters
+    ----------
+    records : iterable of dict
+        Records to append, one JSON object per line.
+    output_fp : str or Path
+        Path of the JSONL file to append to.
+
+    Returns
+    -------
+    int
+        Number of records written.
+    """
     output_fp = Path(output_fp)
     output_fp.parent.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -268,7 +365,19 @@ def append_records(records, output_fp) -> int:
 def load_existing_ids(output_fp) -> set:
     """Return the set of article ids already saved in a JSONL file.
 
-    Missing file -> empty set. Malformed lines are skipped with a warning.
+    Parameters
+    ----------
+    output_fp : str or Path
+        Path of the JSONL file to scan.
+
+    Returns
+    -------
+    set
+        Article ids found in the file. Empty if the file does not exist.
+
+    Notes
+    -----
+    Malformed lines are skipped with a warning.
     """
     output_fp = Path(output_fp)
     ids = set()
@@ -301,15 +410,40 @@ def collect(
     """Search the Guardian and save results incrementally to JSONL.
 
     The high-level entry point used by the CLI script (and the notebook's
-    closing one-liner). Records are appended one page at a time, so an
-    interrupted run keeps everything fetched so far; with ``resume=True``
-    (the default) re-running the same command skips articles whose ids are
-    already in ``output_fp``.
+    closing one-liner).
 
-    Returns a summary dict::
+    Parameters
+    ----------
+    query : str, optional
+        Search phrase. If None, the search is filter-only.
+    output_fp : str or Path
+        Path of the JSONL file records are appended to.
+    client : GuardianClient, optional
+        Client to use. If None, a fresh ``GuardianClient()`` is created.
+    resume : bool, default True
+        Skip articles whose ids are already in ``output_fp``.
+    max_articles : int, optional
+        Stop after saving this many new articles. If None, no limit.
+    max_pages : int, optional
+        Stop after fetching this many pages. If None, no limit.
+    **filters
+        Extra keyword arguments passed to :meth:`GuardianClient.fetch_page`
+        (section, tag, from_date, to_date, order_by, page_size, ...).
 
-        {"new": int, "skipped": int, "calls_used": int,
-         "total_available": int, "budget_exhausted": bool}
+    Returns
+    -------
+    dict
+        Summary dict::
+
+            {"new": int, "skipped": int, "calls_used": int,
+             "total_available": int, "budget_exhausted": bool}
+
+    Notes
+    -----
+    Records are appended one page at a time, so an interrupted run keeps
+    everything fetched so far; with ``resume=True`` (the default)
+    re-running the same command skips articles whose ids are already in
+    ``output_fp``.
     """
     client = client or GuardianClient()
     existing = load_existing_ids(output_fp) if resume else set()

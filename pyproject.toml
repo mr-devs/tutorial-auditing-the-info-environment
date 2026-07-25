@@ -20,6 +20,7 @@ dependencies = [
     "typing_extensions",
     "ipykernel",
     "notebook",
+    "openai-agents>=0.18.3",
 ]
 
 [tool.uv]

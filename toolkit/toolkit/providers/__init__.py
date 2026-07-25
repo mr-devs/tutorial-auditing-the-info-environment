@@ -4,7 +4,8 @@ Provider adapters for the tutorial's LLM calls (OpenAI and Gemini).
 Each provider module exposes the same interface so callers can treat
 providers as interchangeable:
 
-    run_parsed(model, system_prompt, user_text, response_format)
+    run_parsed(model, system_prompt, user_text, response_format,
+               use_web_search=False)
         -> (parsed_pydantic_object_or_None, raw_response_dict)
 
 API keys are resolved with :func:`load_api_key`, which prefers the lab
@@ -27,6 +28,23 @@ def get_run_parsed(provider: str):
 
     Provider modules are imported lazily so consumers only pay for the SDKs
     they actually use.
+
+    Parameters
+    ----------
+    provider : str
+        Provider name: 'openai' or 'gemini'.
+
+    Returns
+    -------
+    callable
+        The provider module's ``run_parsed`` function, with signature
+        ``run_parsed(model, system_prompt, user_text, response_format,
+        use_web_search=False)``.
+
+    Raises
+    ------
+    ValueError
+        If ``provider`` is not 'openai' or 'gemini'.
     """
     if provider == "openai":
         from toolkit.providers import openai_provider

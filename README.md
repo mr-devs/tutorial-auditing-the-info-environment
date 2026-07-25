@@ -10,7 +10,7 @@ tests LLM "contestants" on it three different ways, and finishes with a live
 | 1 | `notebooks/01_guardian_news_collection.ipynb` | `scripts/01_collect_guardian_news.py` | Scrape Guardian articles (full body text) into JSONL |
 | 2 | `notebooks/02_question_generation.ipynb` | `scripts/02_generate_questions.py` | LLMs generate multiple-choice questions from the articles (OpenAI + Gemini, structured outputs, threaded) |
 | 3 | `notebooks/03_llm_judge.ipynb` | `scripts/03-1_generate_judgments.py` → `scripts/03-2_combine_judgments.py` → `scripts/03-3_select_questions.py` | LLM judges vet each question for faithfulness to its article; a seeded random set of passers advances |
-| 4 | *(coming)* | *(coming)* | LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate |
+| 4 | `notebooks/04_answering_methods.ipynb` | `scripts/04-1_generate_answers.py` + `scripts/04-2_generate_debate_answers.py` → `scripts/04-3_combine_answers.py` | LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate (openai-agents SDK) |
 | 5 | *(coming)* | *(coming)* | Live website: humans vs. LLM methods, compared in real time |
 
 Each step ships a **teaching notebook** (the live walkthrough), a
@@ -26,7 +26,6 @@ notes live in [`docs/plans/`](docs/plans/00_overview.md).
 - A free [Guardian API key](https://open-platform.theguardian.com/access/) (Step 1)
 - An [OpenAI API key](https://platform.openai.com/api-keys) (Steps 2–4)
 - A [Gemini API key](https://aistudio.google.com/apikey) (Steps 2–4)
-- An [OpenRouter API key](https://openrouter.ai/keys) (Step 4)
 
 ### Create the environment
 
@@ -46,7 +45,6 @@ member) — edits to `toolkit/` take effect without reinstalling.
 export GUARDIAN_API_KEY="..."
 export OPENAI_API_KEY="sk-..."
 export GEMINI_API_KEY="..."
-export OPENROUTER_API_KEY="sk-or-..."
 ```
 
 Add these to your shell profile, or run them in the terminal you launch
@@ -127,6 +125,40 @@ uv run python scripts/03-3_select_questions.py \
     --input data/judgments/judgments_combined.csv \
     --questions data/questions/questions_gpt-5.6-terra.jsonl
 ```
+
+## Step 4 quick start
+
+The contestant models answer the selected questions under three
+conditions — closed book (weights only), web search (provider search tool
+on), and a 3-agent, 3-round **debate** on the openai-agents SDK (majority
+vote; 9 LLM calls per question; GPT models only). One run = one method ×
+one model:
+
+```bash
+# 1. Closed book + web search (once per method x model; 1,200 calls)
+for METHOD in closed_book web_search; do
+  for M in gpt-5.4-mini-2026-03-17 gpt-5.5-2026-04-23 gpt-5.6-luna \
+           gpt-5.6-terra gemini-3.1-flash-lite gemini-3.5-flash; do
+    uv run python scripts/04-1_generate_answers.py \
+        --model $M --method $METHOD --parallel
+  done
+done
+
+# 2. Debate (once per GPT model; 3,600 calls)
+for M in gpt-5.4-mini-2026-03-17 gpt-5.5-2026-04-23 \
+         gpt-5.6-luna gpt-5.6-terra; do
+  uv run python scripts/04-2_generate_debate_answers.py --model $M --parallel
+done
+
+# 3. Merge the per-run answer files into one tidy, graded CSV
+uv run python scripts/04-3_combine_answers.py \
+    --input-dir data/answers --glob 'answers_*.jsonl'
+```
+
+Contestants see only the question and options — never the article. Each
+answer is graded on the spot (`is_correct`), web-search runs record whether
+the model actually searched, and debate runs keep the full transcript in
+the JSONL.
 
 ## Repository layout
 

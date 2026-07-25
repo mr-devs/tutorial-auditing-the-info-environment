@@ -35,6 +35,9 @@ QUESTIONS_DIR = os.getenv("QUESTIONS_DIR", str(REPO_ROOT / "data" / "questions")
 # Step 3 output: one JSONL file of judgments per judge-model run.
 JUDGMENTS_DIR = os.getenv("JUDGMENTS_DIR", str(REPO_ROOT / "data" / "judgments"))
 
+# Step 4 output: one JSONL file of answers per method x model run.
+ANSWERS_DIR = os.getenv("ANSWERS_DIR", str(REPO_ROOT / "data" / "answers"))
+
 # Datetime-stamped log files from the scripts' --create-log-file flag.
 LOGS_DIR = os.getenv("LOGS_DIR", str(REPO_ROOT / "logs"))
 
@@ -59,8 +62,37 @@ JUDGE_MODELS = {
     "gpt-5.4-mini-2026-03-17": "openai",
 }
 
+# Contestant models for Step 4 — the union of the Step 2 generators and the
+# Step 3 judges (gpt-5.4-mini appears in both), mapped to their provider.
+ANSWER_MODELS = {**SUPPORTED_MODELS, **JUDGE_MODELS}
+
+# The single-call Step 4 answering conditions (see toolkit.answers). The
+# third condition, debate, lives in toolkit.debate and has its own script.
+ANSWER_METHODS = ("closed_book", "web_search")
+
+# Debate contestants: the openai-agents SDK drives the debate, so only the
+# OpenAI GPT models participate in that condition.
+DEBATE_MODELS = {m: p for m, p in ANSWER_MODELS.items() if p == "openai"}
+
+# Society-of-minds debate shape: K agents answer independently, then revise
+# over R rounds. Cost per question = K * (1 + R) LLM calls (3 * 3 = 9).
+DEBATE_N_AGENTS = 3
+DEBATE_N_ROUNDS = 2
+
 
 def get_openai_client():
+    """Create an OpenAI client from the ``OPENAI_API_KEY`` environment variable.
+
+    Returns
+    -------
+    openai.OpenAI
+        A client authenticated with ``OPENAI_API_KEY``.
+
+    Raises
+    ------
+    ValueError
+        If ``OPENAI_API_KEY`` is not set.
+    """
     from openai import OpenAI
 
     if not OPENAI_API_KEY:
@@ -69,6 +101,18 @@ def get_openai_client():
 
 
 def get_openrouter_client():
+    """Create an OpenRouter client from the ``OPENROUTER_API_KEY`` variable.
+
+    Returns
+    -------
+    openrouter.OpenRouter
+        A client authenticated with ``OPENROUTER_API_KEY``.
+
+    Raises
+    ------
+    ValueError
+        If ``OPENROUTER_API_KEY`` is not set.
+    """
     from openrouter import OpenRouter
 
     if not OPENROUTER_API_KEY:

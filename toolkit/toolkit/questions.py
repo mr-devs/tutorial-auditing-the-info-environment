@@ -41,7 +41,21 @@ class QuestionGenerationError(RuntimeError):
 
 
 class MCQuestion(BaseModel):
-    """One multiple-choice question grounded in a single news article."""
+    """One multiple-choice question grounded in a single news article.
+
+    Field semantics live in the ``Field`` descriptions below.
+
+    Attributes
+    ----------
+    question : str
+        A self-contained question about a specific fact in the article.
+    options : list of str
+        Exactly 4 answer options, in the order A, B, C, D.
+    correct_letter : {"A", "B", "C", "D"}
+        The letter of the one correct option.
+    explanation : str
+        1-3 sentences of supporting article text.
+    """
 
     question: str = Field(
         description="A self-contained question about a specific fact in the article."
@@ -63,7 +77,13 @@ class MCQuestion(BaseModel):
 
 
 class ArticleQuestions(BaseModel):
-    """The structured response for one article: a list of MCQs."""
+    """The structured response for one article: a list of MCQs.
+
+    Attributes
+    ----------
+    questions : list of MCQuestion
+        The generated questions for one article.
+    """
 
     questions: list[MCQuestion]
 
@@ -84,7 +104,25 @@ def _resolve_provider(provider: str):
 def to_question_records(
     article: dict, parsed: ArticleQuestions, provider: str, model: str
 ) -> list[dict]:
-    """Flatten one article's validated response into one dict per question."""
+    """Flatten one article's validated response into one dict per question.
+
+    Parameters
+    ----------
+    article : dict
+        The source article record (must have an ``"id"`` key).
+    parsed : ArticleQuestions
+        The validated structured response for the article.
+    provider : str
+        Provider name that generated the questions ('openai' or 'gemini').
+    model : str
+        Model name that generated the questions.
+
+    Returns
+    -------
+    list of dict
+        One JSONL-ready record per question, each with a unique ``id`` of
+        the form ``{provider}__{article_id}__q{i}``.
+    """
     generated_at = datetime.now(timezone.utc).isoformat()
     records = []
     for i, q in enumerate(parsed.questions):
@@ -106,7 +144,20 @@ def to_question_records(
 
 
 def append_records(records, output_fp) -> int:
-    """Append records to a JSONL file (creating parent dirs). Returns count."""
+    """Append records to a JSONL file, creating parent directories as needed.
+
+    Parameters
+    ----------
+    records : iterable of dict
+        Records to append, one JSON object per line.
+    output_fp : str or Path
+        Path of the JSONL file to append to.
+
+    Returns
+    -------
+    int
+        Number of records written.
+    """
     output_fp = Path(output_fp)
     output_fp.parent.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -120,7 +171,19 @@ def append_records(records, output_fp) -> int:
 def load_completed_article_ids(output_fp) -> set:
     """Return the set of article ids that already have questions saved.
 
-    Missing file -> empty set. Malformed lines are skipped with a warning.
+    Parameters
+    ----------
+    output_fp : str or Path
+        Path of the questions JSONL file to scan.
+
+    Returns
+    -------
+    set
+        Article ids found in the file. Empty if the file does not exist.
+
+    Notes
+    -----
+    Malformed lines are skipped with a warning.
     """
     output_fp = Path(output_fp)
     ids = set()
@@ -147,7 +210,32 @@ def generate_questions_for_article(
     model: Optional[str] = None,
     n_questions: int = 3,
 ) -> list[dict]:
-    """One article -> one LLM call -> a list of validated question records."""
+    """Generate validated question records for one article with one LLM call.
+
+    Parameters
+    ----------
+    article : dict
+        Article record with ``"id"``, ``"headline"``, and ``"body_text"``.
+    provider : str, default "openai"
+        Provider name ('openai' or 'gemini').
+    model : str, optional
+        Model name. If None, the provider's default model is used.
+    n_questions : int, default 3
+        Number of questions to request per article.
+
+    Returns
+    -------
+    list of dict
+        JSONL-ready question records, as built by
+        :func:`to_question_records`.
+
+    Raises
+    ------
+    ValueError
+        If ``provider`` is not 'openai' or 'gemini'.
+    QuestionGenerationError
+        If the model's response could not be parsed into the schema.
+    """
     run_parsed, default_model = _resolve_provider(provider)
     model = model or default_model
     parsed, _raw = run_parsed(
@@ -178,22 +266,54 @@ def generate_for_articles(
 ) -> dict:
     """Generate MCQs for many articles and append them to a JSONL file.
 
-    With ``parallel=True``, articles are submitted to a ``ThreadPoolExecutor``
-    (API calls are I/O-bound, so threads overlap the waiting); otherwise a
-    plain sequential loop runs. Either way the file is written only from the
-    main thread — worker threads just call the API and return records — and
-    each article's questions are appended as soon as they arrive (crash-safe;
-    Ctrl-C waits for in-flight calls, and everything completed is saved).
+    Parameters
+    ----------
+    articles : list of dict
+        Article records with ``"id"``, ``"headline"``, and ``"body_text"``.
+        Duplicate ids are dropped before processing.
+    output_fp : str or Path
+        Path of the JSONL file question records are appended to.
+    provider : str, default "openai"
+        Provider name ('openai' or 'gemini').
+    model : str, optional
+        Model name. If None, the provider's default model is used.
+    n_questions : int, default 3
+        Number of questions to request per article.
+    parallel : bool, default False
+        Fan article calls out across a ``ThreadPoolExecutor``.
+    max_workers : int, default 8
+        Thread-pool size when ``parallel=True``.
+    resume : bool, default True
+        Skip articles whose ids already appear in ``output_fp``.
+
+    Returns
+    -------
+    dict
+        Summary dict::
+
+            {"provider", "model", "articles_processed", "articles_skipped",
+             "articles_failed", "new_questions", "elapsed_seconds",
+             "output_fp"}
+
+    Raises
+    ------
+    ValueError
+        If ``provider`` is unknown or the provider's API key is not set.
+
+    Notes
+    -----
+    With ``parallel=True``, articles are submitted to a
+    ``ThreadPoolExecutor`` (API calls are I/O-bound, so threads overlap the
+    waiting); otherwise a plain sequential loop runs. Either way the file is
+    written only from the main thread — worker threads just call the API and
+    return records — and each article's questions are appended as soon as
+    they arrive (crash-safe; Ctrl-C waits for in-flight calls, and
+    everything completed is saved).
 
     One failing article does not stop the run: its error is logged, nothing
     is written for it, and a re-run with ``resume=True`` (which skips
     articles whose ids already appear in ``output_fp``) retries exactly the
     failures.
-
-    Returns a summary dict::
-
-        {"provider", "model", "articles_processed", "articles_skipped",
-         "articles_failed", "new_questions", "elapsed_seconds", "output_fp"}
     """
     # Fail fast on an unknown provider or missing API key BEFORE spawning
     # threads (otherwise every worker raises the same error). Key loading is
@@ -215,11 +335,13 @@ def generate_for_articles(
     start = time.monotonic()
 
     def _one(article):
+        """Generate question records for one article."""
         return generate_questions_for_article(
             article, provider=provider, model=model, n_questions=n_questions
         )
 
     def _handle(article, records_or_error):
+        """Record one article's outcome: append its records or log its error."""
         nonlocal processed, failed, new_questions
         if isinstance(records_or_error, Exception):
             failed += 1

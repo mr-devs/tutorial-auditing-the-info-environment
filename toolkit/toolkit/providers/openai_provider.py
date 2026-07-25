@@ -1,12 +1,13 @@
 """
 Provider: OpenAI (Responses API) with Pydantic structured outputs.
 
-`run_parsed(model, system_prompt, user_text, response_format)` returns
-`(parsed_pydantic_object_or_None, raw_response_dict)` — the same interface as
+`run_parsed(model, system_prompt, user_text, response_format,
+use_web_search=False)` returns `(parsed_pydantic_object_or_None,
+raw_response_dict)` — the same interface as
 `toolkit.providers.gemini_provider`, so callers can swap providers freely.
 
 Web search is off by default (Step 2's question generation must stay grounded
-in the supplied article); Step 4's open-book condition turns it on explicitly.
+in the supplied article); Step 4's web_search condition turns it on explicitly.
 """
 
 import logging
@@ -48,6 +49,7 @@ def _get_client() -> OpenAI:
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
 def _call(model, system_prompt, user_text, response_format, use_web_search):
+    """Issue one retried ``responses.parse`` call and return the raw response."""
     kwargs = dict(
         model=model,
         input=[
@@ -62,7 +64,27 @@ def _call(model, system_prompt, user_text, response_format, use_web_search):
 
 
 def run(model, system_prompt, user_text, response_format, use_web_search=False):
-    """Call the OpenAI Responses API and return the raw response dict."""
+    """Call the OpenAI Responses API and return the raw response dict.
+
+    Parameters
+    ----------
+    model : str
+        OpenAI model name.
+    system_prompt : str
+        The system (developer) message.
+    user_text : str
+        The user message.
+    response_format : type
+        Pydantic model class describing the expected structured output.
+    use_web_search : bool, default False
+        Enable the web search tool. Off by default so Step 2's question
+        generation stays grounded in the supplied article.
+
+    Returns
+    -------
+    dict
+        The raw response as a dict (``model_dump``).
+    """
     response = _call(model, system_prompt, user_text, response_format, use_web_search)
     return response.model_dump(warnings=False)
 
@@ -70,8 +92,26 @@ def run(model, system_prompt, user_text, response_format, use_web_search=False):
 def run_parsed(model, system_prompt, user_text, response_format, use_web_search=False):
     """Like ``run`` but also return the schema-validated Pydantic object.
 
-    Returns ``(parsed, raw_dict)`` where ``parsed`` is an instance of
-    ``response_format`` (or ``None`` if the model's output failed to parse).
+    Parameters
+    ----------
+    model : str
+        OpenAI model name.
+    system_prompt : str
+        The system (developer) message.
+    user_text : str
+        The user message.
+    response_format : type
+        Pydantic model class describing the expected structured output.
+    use_web_search : bool, default False
+        Enable the web search tool. Off by default so Step 2's question
+        generation stays grounded in the supplied article.
+
+    Returns
+    -------
+    tuple of (object or None, dict)
+        ``(parsed, raw_dict)`` where ``parsed`` is an instance of
+        ``response_format`` (or ``None`` if the model's output failed to
+        parse) and ``raw_dict`` is the raw response as a dict.
     """
     response = _call(model, system_prompt, user_text, response_format, use_web_search)
     return response.output_parsed, response.model_dump(warnings=False)
