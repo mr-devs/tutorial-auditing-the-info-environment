@@ -61,13 +61,30 @@ def _get_client() -> genai.Client:
     reraise=True,
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
-def _call(model, system_prompt, user_text, response_format, use_web_search):
+def _call(
+    model,
+    system_prompt,
+    user_text,
+    response_format,
+    use_web_search,
+    temperature=None,
+    include_domains=None,
+    exclude_domains=None,
+):
     """Issue one retried ``generate_content`` call and return the raw response."""
+    if include_domains or exclude_domains:
+        raise ValueError(
+            "Domain filtering is not supported by the Gemini Developer API "
+            "(GoogleSearch.exclude_domains is Enterprise-only, and there is "
+            "no allow-list at all). Use an OpenAI model for domain filters."
+        )
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
         response_mime_type="application/json",
         response_schema=response_format,
     )
+    if temperature is not None:
+        config.temperature = temperature
     if use_web_search:
         config.tools = GEMINI_WEBSEARCH_TOOLS
     return _get_client().models.generate_content(
@@ -77,7 +94,16 @@ def _call(model, system_prompt, user_text, response_format, use_web_search):
     )
 
 
-def run(model, system_prompt, user_text, response_format, use_web_search=False):
+def run(
+    model,
+    system_prompt,
+    user_text,
+    response_format,
+    use_web_search=False,
+    temperature=None,
+    include_domains=None,
+    exclude_domains=None,
+):
     """Call the Gemini API and return the raw response dict.
 
     Parameters
@@ -95,17 +121,50 @@ def run(model, system_prompt, user_text, response_format, use_web_search=False):
         Enable the built-in ``google_search`` grounding tool. Off by
         default so Step 2's question generation stays grounded in the
         supplied article.
+    temperature : float or None, default None
+        Sampling temperature (0.0–2.0). ``None`` uses the model default.
+    include_domains : list of str or None, default None
+        Not supported by the Gemini Developer API; always raises
+        ``ValueError`` if set. Present only so the provider interface
+        matches ``openai_provider``.
+    exclude_domains : list of str or None, default None
+        Not supported by the Gemini Developer API
+        (``GoogleSearch.exclude_domains`` is Enterprise-only); always
+        raises ``ValueError`` if set.
 
     Returns
     -------
     dict
         The raw response as a dict (``model_dump``).
+
+    Raises
+    ------
+    ValueError
+        If ``include_domains`` or ``exclude_domains`` is set.
     """
-    response = _call(model, system_prompt, user_text, response_format, use_web_search)
+    response = _call(
+        model,
+        system_prompt,
+        user_text,
+        response_format,
+        use_web_search,
+        temperature=temperature,
+        include_domains=include_domains,
+        exclude_domains=exclude_domains,
+    )
     return response.model_dump(mode="json", exclude_none=True)
 
 
-def run_parsed(model, system_prompt, user_text, response_format, use_web_search=False):
+def run_parsed(
+    model,
+    system_prompt,
+    user_text,
+    response_format,
+    use_web_search=False,
+    temperature=None,
+    include_domains=None,
+    exclude_domains=None,
+):
     """Like ``run`` but also return the schema-validated Pydantic object.
 
     Parameters
@@ -123,6 +182,16 @@ def run_parsed(model, system_prompt, user_text, response_format, use_web_search=
         Enable the built-in ``google_search`` grounding tool. Off by
         default so Step 2's question generation stays grounded in the
         supplied article.
+    temperature : float or None, default None
+        Sampling temperature (0.0–2.0). ``None`` uses the model default.
+    include_domains : list of str or None, default None
+        Not supported by the Gemini Developer API; always raises
+        ``ValueError`` if set. Present only so the provider interface
+        matches ``openai_provider``.
+    exclude_domains : list of str or None, default None
+        Not supported by the Gemini Developer API
+        (``GoogleSearch.exclude_domains`` is Enterprise-only); always
+        raises ``ValueError`` if set.
 
     Returns
     -------
@@ -130,6 +199,20 @@ def run_parsed(model, system_prompt, user_text, response_format, use_web_search=
         ``(parsed, raw_dict)`` where ``parsed`` is an instance of
         ``response_format`` (or ``None`` if the model's output failed to
         parse) and ``raw_dict`` is the raw response as a dict.
+
+    Raises
+    ------
+    ValueError
+        If ``include_domains`` or ``exclude_domains`` is set.
     """
-    response = _call(model, system_prompt, user_text, response_format, use_web_search)
+    response = _call(
+        model,
+        system_prompt,
+        user_text,
+        response_format,
+        use_web_search,
+        temperature=temperature,
+        include_domains=include_domains,
+        exclude_domains=exclude_domains,
+    )
     return response.parsed, response.model_dump(mode="json", exclude_none=True)

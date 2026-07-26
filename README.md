@@ -19,7 +19,7 @@ that build figures from the script outputs.
    - `notebooks/demos/03_llm_judge.ipynb` (analysis: `notebooks/analysis/03_judgment_analysis.ipynb`)
    - `scripts/03-1_generate_judgments.py` → `scripts/03-2_combine_judgments.py` → `scripts/03-3_select_questions.py`
 4. **Answering methods** — LLMs answer the quiz: closed-book vs. web search vs. multi-agent debate:
-   - `notebooks/demos/04_answering_methods.ipynb` (analysis: `notebooks/analysis/04_answer_analysis.ipynb`)
+   - `notebooks/demos/04a_closed_book.ipynb`, `notebooks/demos/04b_web_search.ipynb`, `notebooks/demos/04c_debate.ipynb` (analysis: `notebooks/analysis/04_answer_analysis.ipynb`)
    - `scripts/04-1_generate_answers.py` + `scripts/04-2_generate_debate_answers.py` → `scripts/04-3_combine_answers.py`
 
 ## Setup

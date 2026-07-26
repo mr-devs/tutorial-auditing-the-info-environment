@@ -239,7 +239,15 @@ def _detect_search_use(provider: str, raw: dict) -> bool:
     return False
 
 
-def _answer_direct(question: dict, *, model: str, use_web_search: bool):
+def _answer_direct(
+    question: dict,
+    *,
+    model: str,
+    use_web_search: bool,
+    temperature: float | None = None,
+    include_domains: list | None = None,
+    exclude_domains: list | None = None,
+):
     """Answer one question with one model call.
 
     Shared by the ``closed_book`` (``use_web_search=False``) and
@@ -253,6 +261,12 @@ def _answer_direct(question: dict, *, model: str, use_web_search: bool):
         Contestant model name; must be a key of ``config.ANSWER_MODELS``.
     use_web_search : bool
         Enable the provider's web-search tool for this call.
+    temperature : float or None, default None
+        Sampling temperature. ``None`` uses the provider default.
+    include_domains : list of str or None, default None
+        Restrict web search to these domains (OpenAI models only).
+    exclude_domains : list of str or None, default None
+        Exclude these domains from web search.
 
     Returns
     -------
@@ -271,6 +285,9 @@ def _answer_direct(question: dict, *, model: str, use_web_search: bool):
         prompts.build_answer_user_prompt(question["question"], question["options"]),
         Answer,
         use_web_search=use_web_search,
+        temperature=temperature,
+        include_domains=include_domains,
+        exclude_domains=exclude_domains,
     )
     if parsed is None:
         raise AnswerError(
@@ -279,7 +296,15 @@ def _answer_direct(question: dict, *, model: str, use_web_search: bool):
     return parsed, raw
 
 
-def answer_question(question: dict, *, model: str, method: str) -> dict:
+def answer_question(
+    question: dict,
+    *,
+    model: str,
+    method: str,
+    temperature: float | None = None,
+    include_domains: list | None = None,
+    exclude_domains: list | None = None,
+) -> dict:
     """Answer one question under one condition and build its record.
 
     Parameters
@@ -291,6 +316,18 @@ def answer_question(question: dict, *, model: str, method: str) -> dict:
         Contestant model name; must be a key of ``config.ANSWER_MODELS``.
     method : str
         The answering condition, one of ``config.ANSWER_METHODS``.
+    temperature : float or None, default None
+        Sampling temperature passed to the provider. ``None`` (the
+        default) uses the provider default. GPT-5-series reasoning
+        models reject non-default values; Gemini accepts 0.0–2.0.
+    include_domains : list of str or None, default None
+        Restrict web search to these domains (``web_search`` method,
+        OpenAI models only; omit the URL scheme, e.g.
+        ``["theguardian.com"]``).
+    exclude_domains : list of str or None, default None
+        Exclude these domains from web search (``web_search`` method,
+        OpenAI models only — the Gemini Developer API has no domain
+        filters).
 
     Returns
     -------
@@ -302,13 +339,29 @@ def answer_question(question: dict, *, model: str, method: str) -> dict:
     AnswerError
         If any model response could not be parsed into the schema.
     ValueError
-        If ``method`` is not a known answering method.
+        If ``method`` is not a known answering method, or a domain
+        filter is combined with ``closed_book`` / an unsupported
+        provider.
     """
     if method == "closed_book":
-        parsed, raw = _answer_direct(question, model=model, use_web_search=False)
+        parsed, raw = _answer_direct(
+            question,
+            model=model,
+            use_web_search=False,
+            temperature=temperature,
+            include_domains=include_domains,
+            exclude_domains=exclude_domains,
+        )
         return to_answer_record(question, parsed, model=model, method=method, raw=raw)
     if method == "web_search":
-        parsed, raw = _answer_direct(question, model=model, use_web_search=True)
+        parsed, raw = _answer_direct(
+            question,
+            model=model,
+            use_web_search=True,
+            temperature=temperature,
+            include_domains=include_domains,
+            exclude_domains=exclude_domains,
+        )
         search_used = _detect_search_use(config.ANSWER_MODELS[model], raw)
         return to_answer_record(
             question,
