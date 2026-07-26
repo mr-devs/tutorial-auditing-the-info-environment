@@ -76,11 +76,9 @@ for METHOD in closed_book web_search; do
   done
 done
 
-# 2. Debate (once per GPT model; 3,600 calls)
-for M in gpt-5.4-mini-2026-03-17 gpt-5.5-2026-04-23 \
-         gpt-5.6-luna gpt-5.6-terra; do
-  uv run python scripts/04-2_generate_debate_answers.py --model $M --parallel
-done
+# 2. Debate (one model; 900 calls — 9 per question)
+uv run python scripts/04-2_generate_debate_answers.py \
+    --model gpt-5.4-mini-2026-03-17 --parallel
 
 # 3. Merge the per-run answer files into one tidy, graded CSV
 uv run python scripts/04-3_combine_answers.py \

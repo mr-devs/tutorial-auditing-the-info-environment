@@ -88,6 +88,7 @@ def to_answer_record(
     method: str,
     search_used=None,
     debate=None,
+    raw=None,
 ) -> dict:
     """Flatten one validated answer into a JSONL-ready dict.
 
@@ -112,13 +113,16 @@ def to_answer_record(
     debate : dict, optional
         Full debate state (transcript, vote counts, tie-break rule used).
         Only set by ``toolkit.debate``.
+    raw : dict, optional
+        Full raw provider response as returned by ``run_parsed``.
+        ``None`` for debate records.
 
     Returns
     -------
     dict
         JSONL-ready answer record with a unique ``id`` of the form
         ``{method}__{model}__{question_id}``. Every field is scalar
-        except ``debate``.
+        except ``debate`` and ``raw``.
     """
     return {
         "id": f"{method}__{model}__{question['id']}",
@@ -134,6 +138,7 @@ def to_answer_record(
         "reasoning": parsed.reasoning,
         "search_used": search_used,
         "debate": debate,
+        "raw": raw,
         "answered_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -300,13 +305,18 @@ def answer_question(question: dict, *, model: str, method: str) -> dict:
         If ``method`` is not a known answering method.
     """
     if method == "closed_book":
-        parsed, _raw = _answer_direct(question, model=model, use_web_search=False)
-        return to_answer_record(question, parsed, model=model, method=method)
+        parsed, raw = _answer_direct(question, model=model, use_web_search=False)
+        return to_answer_record(question, parsed, model=model, method=method, raw=raw)
     if method == "web_search":
         parsed, raw = _answer_direct(question, model=model, use_web_search=True)
         search_used = _detect_search_use(config.ANSWER_MODELS[model], raw)
         return to_answer_record(
-            question, parsed, model=model, method=method, search_used=search_used
+            question,
+            parsed,
+            model=model,
+            method=method,
+            search_used=search_used,
+            raw=raw,
         )
     raise ValueError(
         f"Unknown method: {method!r} (expected one of {config.ANSWER_METHODS})"

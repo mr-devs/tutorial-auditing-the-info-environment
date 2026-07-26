@@ -114,4 +114,4 @@ def run_parsed(model, system_prompt, user_text, response_format, use_web_search=
         parse) and ``raw_dict`` is the raw response as a dict.
     """
     response = _call(model, system_prompt, user_text, response_format, use_web_search)
-    return response.output_parsed, response.model_dump(warnings=False)
+    return response.output_parsed, response.model_dump(mode="json", warnings=False)

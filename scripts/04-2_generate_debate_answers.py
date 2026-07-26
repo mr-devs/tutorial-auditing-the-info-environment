@@ -3,26 +3,26 @@ Purpose: Have one OpenAI GPT model answer the vetted multiple-choice
 questions (from Step 3) through a multi-agent society-of-minds DEBATE,
 writing one JSONL answer (with the full transcript) per question.
 
+Ref: https://doi.org/10.48550/arXiv.2305.14325
+
 Three agents backed by the same model — openai-agents SDK Agents run
 through Runner.run — answer independently, then revise over two rounds
 after reading each other's answers; a majority vote decides (ties break by
 mean confidence, then alphabetically). That is 9 LLM calls per question.
-Run this script once per model, then merge the per-run files with
-scripts/04-3_combine_answers.py. The single-call conditions (closed_book,
-web_search) live in scripts/04-1_generate_answers.py.
+The tutorial runs this once, with gpt-5.4-mini-2026-03-17 (other GPT
+models work too — rerun with a different --model), then merges the per-run
+files with scripts/04-3_combine_answers.py. The single-call conditions
+(closed_book, web_search) live in scripts/04-1_generate_answers.py.
 
 Examples
 --------
-# One model, small demo
+# Small demo
 uv run python scripts/04-2_generate_debate_answers.py \
     --model gpt-5.4-mini-2026-03-17 --max-questions 5 --parallel
 
-# All four GPT contestants
-for M in gpt-5.4-mini-2026-03-17 gpt-5.5-2026-04-23 \
-         gpt-5.6-luna gpt-5.6-terra; do
-  uv run python scripts/04-2_generate_debate_answers.py \
-      --model $M --parallel
-done
+# The full tutorial run (900 calls: 100 questions x 9)
+uv run python scripts/04-2_generate_debate_answers.py \
+    --model gpt-5.4-mini-2026-03-17 --parallel
 
 Inputs
 ------
@@ -103,9 +103,9 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help=(
             "The contestant model backing all three debaters. OpenAI GPT "
-            "models only — the debate runs on the openai-agents SDK. Run "
-            "the script once per model; scripts/04-3_combine_answers.py "
-            "merges the outputs."
+            "models only — the debate runs on the openai-agents SDK. The "
+            "tutorial debates gpt-5.4-mini-2026-03-17; "
+            "scripts/04-3_combine_answers.py merges any per-model outputs."
         ),
     )
     debating.add_argument(
