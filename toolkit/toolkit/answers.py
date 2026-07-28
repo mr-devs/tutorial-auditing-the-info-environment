@@ -48,6 +48,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from toolkit import config, prompts, providers
+from toolkit.utils import GROUNDING_REDIRECT_MARKER
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +103,9 @@ class WebSearchAnswer(Answer):
 
     citations: list[str] = Field(
         description=(
-            "URLs of the web sources you consulted to answer; "
-            "empty list if you did not search."
+            "Full http(s):// URLs of the web sources you consulted, copied "
+            "exactly from the search results — never titles, snippets, or "
+            "reference numbers. Empty list if you did not search."
         )
     )
 
@@ -235,11 +237,6 @@ def load_completed_question_ids(output_fp) -> set:
     return ids
 
 
-# Gemini search results link sources through this redirect host; a model
-# can only have such a URL if the search tool actually returned it.
-_GROUNDING_REDIRECT = "vertexaisearch.cloud.google.com/grounding-api-redirect"
-
-
 def _detect_search_use(provider: str, raw: dict, citations=None) -> bool:
     """Return True if the response shows the search tool was invoked.
 
@@ -263,7 +260,7 @@ def _detect_search_use(provider: str, raw: dict, citations=None) -> bool:
         or a grounding-redirect citation appears in the response; False
         otherwise, including when the expected structure is absent.
     """
-    if any(_GROUNDING_REDIRECT in url for url in citations or []):
+    if any(GROUNDING_REDIRECT_MARKER in url for url in citations or []):
         return True
     try:
         if provider == "openai":
