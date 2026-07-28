@@ -23,6 +23,8 @@ Notes:
   is usually fine for short debate turns, bump to "medium"/"high" for
   harder claims.
 
+Ref: https://openai.github.io/openai-agents-python/
+
 Install:
     pip install openai-agents
     export OPENAI_API_KEY=sk-...

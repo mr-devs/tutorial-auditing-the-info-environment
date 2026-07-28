@@ -139,6 +139,12 @@ Rules:
 - Give 1-2 sentences of reasoning and a confidence between 0 and 1.
 """
 
+# Appended to ANSWER_SYSTEM_PROMPT for the web_search method only.
+ANSWER_WEBSEARCH_ADDENDUM = """\
+- You have a web-search tool. Search to verify before answering, and
+  list the URLs of the sources you relied on in `citations`.
+"""
+
 
 def _letter_options(options: list) -> str:
     """Render options as lettered lines (index 0 = A, ... index 3 = D)."""

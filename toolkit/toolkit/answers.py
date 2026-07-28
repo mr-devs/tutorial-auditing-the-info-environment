@@ -6,7 +6,9 @@ question under one of the two single-call conditions ("methods"):
 - ``closed_book`` — the question and options only; no article, no tools.
   Measures what the model knows from its weights alone.
 - ``web_search`` — the same prompt with the provider's web-search tool
-  enabled. Measures what retrieval adds.
+  enabled, plus a one-line addendum asking the model to search and list
+  the source URLs it relied on (the ``WebSearchAnswer`` schema's
+  ``citations`` field). Measures what retrieval adds.
 
 The third condition, the multi-agent **debate**, lives in
 ``toolkit.debate`` (built on the openai-agents SDK) and shares this
@@ -80,6 +82,32 @@ class Answer(BaseModel):
     reasoning: str = Field(description="1-2 sentences explaining the choice.")
 
 
+class WebSearchAnswer(Answer):
+    """The ``web_search`` variant of ``Answer``, with self-reported sources.
+
+    Requiring a ``citations`` field does double duty: it nudges the model
+    to actually search (an empty list is a visible admission), and it
+    recovers source attribution that OpenAI's structured-output mode
+    strips from the response's ``url_citation`` annotations. The base
+    ``Answer`` schema is unchanged, so closed-book and debate runs are
+    unaffected.
+
+    Attributes
+    ----------
+    citations : list of str
+        URLs of the web sources consulted; empty if the model did not
+        search. Self-reported — unlike API annotations, nothing verifies
+        these server-side.
+    """
+
+    citations: list[str] = Field(
+        description=(
+            "URLs of the web sources you consulted to answer; "
+            "empty list if you did not search."
+        )
+    )
+
+
 def to_answer_record(
     question: dict,
     parsed: Answer,
@@ -136,6 +164,7 @@ def to_answer_record(
         "is_correct": parsed.answer_letter == question["correct_letter"],
         "confidence": parsed.confidence,
         "reasoning": parsed.reasoning,
+        "citations": getattr(parsed, "citations", None),
         "search_used": search_used,
         "debate": debate,
         "raw": raw,
@@ -206,8 +235,13 @@ def load_completed_question_ids(output_fp) -> set:
     return ids
 
 
-def _detect_search_use(provider: str, raw: dict) -> bool:
-    """Return True if the raw response shows the search tool was invoked.
+# Gemini search results link sources through this redirect host; a model
+# can only have such a URL if the search tool actually returned it.
+_GROUNDING_REDIRECT = "vertexaisearch.cloud.google.com/grounding-api-redirect"
+
+
+def _detect_search_use(provider: str, raw: dict, citations=None) -> bool:
+    """Return True if the response shows the search tool was invoked.
 
     Parameters
     ----------
@@ -215,14 +249,22 @@ def _detect_search_use(provider: str, raw: dict) -> bool:
         Provider name: 'openai' or 'gemini'.
     raw : dict
         The raw response dict returned by ``run_parsed``.
+    citations : list of str, optional
+        Self-reported source URLs from a ``WebSearchAnswer``. Only URLs
+        on Gemini's grounding-redirect host count as evidence — they
+        cannot be produced without a real search — because Gemini's
+        multi-call (AFC) grounding can search without the final
+        response carrying any ``grounding_metadata``.
 
     Returns
     -------
     bool
-        True if a web-search call (OpenAI) or search grounding (Gemini)
-        appears in the response; False otherwise, including when the
-        expected structure is absent.
+        True if a web-search call (OpenAI), search grounding (Gemini),
+        or a grounding-redirect citation appears in the response; False
+        otherwise, including when the expected structure is absent.
     """
+    if any(_GROUNDING_REDIRECT in url for url in citations or []):
+        return True
     try:
         if provider == "openai":
             return any(
@@ -251,7 +293,10 @@ def _answer_direct(
     """Answer one question with one model call.
 
     Shared by the ``closed_book`` (``use_web_search=False``) and
-    ``web_search`` (``use_web_search=True``) methods.
+    ``web_search`` (``use_web_search=True``) methods. Web-search calls
+    append ``prompts.ANSWER_WEBSEARCH_ADDENDUM`` to the system prompt and
+    parse into ``WebSearchAnswer`` (adds a ``citations`` field); closed
+    book uses the plain prompt and ``Answer``.
 
     Parameters
     ----------
@@ -279,11 +324,16 @@ def _answer_direct(
         If the model's response could not be parsed into the schema.
     """
     run_parsed = providers.get_run_parsed(config.ANSWER_MODELS[model])
+    system_prompt = prompts.ANSWER_SYSTEM_PROMPT
+    schema = Answer
+    if use_web_search:
+        system_prompt += prompts.ANSWER_WEBSEARCH_ADDENDUM
+        schema = WebSearchAnswer
     parsed, raw = run_parsed(
         model,
-        prompts.ANSWER_SYSTEM_PROMPT,
+        system_prompt,
         prompts.build_answer_user_prompt(question["question"], question["options"]),
-        Answer,
+        schema,
         use_web_search=use_web_search,
         temperature=temperature,
         include_domains=include_domains,
@@ -362,7 +412,9 @@ def answer_question(
             include_domains=include_domains,
             exclude_domains=exclude_domains,
         )
-        search_used = _detect_search_use(config.ANSWER_MODELS[model], raw)
+        search_used = _detect_search_use(
+            config.ANSWER_MODELS[model], raw, citations=parsed.citations
+        )
         return to_answer_record(
             question,
             parsed,

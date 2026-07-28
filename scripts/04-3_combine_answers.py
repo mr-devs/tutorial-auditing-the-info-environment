@@ -30,7 +30,8 @@ Outputs
 A tidy CSV where each row is ONE answer (one question by one model under
 one method), with columns: question_id, article_id, method, model,
 provider, answer_letter, correct_letter, is_correct, confidence,
-search_used, reasoning, answered_at. Rows are sorted by question_id,
+search_used, reasoning, citations (web_search only, a JSON list of
+self-reported source URLs), answered_at. Rows are sorted by question_id,
 method, then model. The nested debate transcripts are dropped (they stay
 in the JSONL files). Every input line is validated against the answer
 record schema; invalid or malformed lines are skipped with a warning, and
@@ -67,6 +68,7 @@ CSV_COLUMNS = [
     "confidence",
     "search_used",
     "reasoning",
+    "citations",
     "answered_at",
 ]
 
@@ -90,6 +92,7 @@ class AnswerRecord(BaseModel):
     confidence: float
     reasoning: str
     search_used: Optional[bool]
+    citations: Optional[list[str]] = None
     answered_at: str
 
 
@@ -244,6 +247,11 @@ def main(argv=None) -> int:
             disagreements,
         )
     df["is_correct"] = regraded
+
+    # Lists don't round-trip through CSV; store citations as a JSON string.
+    df["citations"] = df["citations"].map(
+        lambda c: json.dumps(c) if isinstance(c, list) else None
+    )
 
     df = (
         df[CSV_COLUMNS]

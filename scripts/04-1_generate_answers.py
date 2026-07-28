@@ -50,8 +50,9 @@ Outputs
 A JSONL file (default data/answers/answers_<method>_<model>.jsonl), one
 answer per line with keys: id, question_id, article_id, method, model,
 provider, answer_letter, correct_letter, is_correct (graded on the spot),
-confidence, reasoning, search_used (web_search only), answered_at. The
-contestant sees
+confidence, reasoning, citations (web_search only — the model's
+self-reported source URLs, requested via prompts.ANSWER_WEBSEARCH_ADDENDUM),
+search_used (web_search only), answered_at. The contestant sees
 ONLY the question and its lettered options — never the article. Appended
 incrementally (crash-safe); re-running the same command skips questions
 already answered.
@@ -111,8 +112,9 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help=(
             "The answering condition: closed_book (question + options only) "
-            "or web_search (the same prompt with the provider's search tool "
-            "on) — one LLM call per question either way. The debate "
+            "or web_search (the same prompt plus a citation addendum, with "
+            "the provider's search tool on) — one LLM call per question "
+            "either way. The debate "
             "condition has its own script, "
             "scripts/04-2_generate_debate_answers.py."
         ),
